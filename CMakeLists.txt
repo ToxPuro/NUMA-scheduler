@@ -1,0 +1,15 @@
+cmake_minimum_required(VERSION 3.18)
+
+project(mt-scheduler C CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+include_directories(${CMAKE_SOURCE_DIR})
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+
+find_package(Threads REQUIRED)
+find_package(MPI REQUIRED COMPONENTS C) 
+include_directories(${MPI_C_INCLUDE_DIRS})
+add_executable(mt.o multithreading.cpp)
+target_link_libraries(mt.o PRIVATE Threads::Threads)
+target_link_libraries(mt.o PRIVATE ${MPI_C_LIBRARIES})
