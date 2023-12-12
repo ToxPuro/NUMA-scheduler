@@ -1,81 +1,15 @@
 #pragma once
 #include <cstddef>
-#include <vector>
-#include <functional>
 #include <queue>
 #include <mutex>
 #include <optional>
-#include <mpi.h>
-typedef struct 
-{
-  const size_t start;
-  const size_t end;
-  size_t length() const{
-    return end-start;
-  }
-} TaskBounds;
+#include <task.h>
+#include <thread>
 typedef struct 
 {
   const int task_id;
 } TaskHandle;
 
-class Latch{
-  Latch(const Latch&) = delete;
-  Latch(Latch&&) = delete;
-  private:
-    std::atomic<int> counter;
-  public:
-    Latch(const int starting_value): counter(starting_value){}
-    void
-    count_down(){
-      counter.fetch_sub(1, std::memory_order_release);
-    }
-    bool
-    try_wait()
-    {
-      return counter.load(std::memory_order_acquire)==0;
-    }
-    void
-    wait()
-    {
-      while(!try_wait());
-    }
-};
-
-class Task {
-  Task(const Task&) = delete;
-  private:
-    const std::vector<Task*> m_dependencies;
-    Latch m_latch;
-    std::vector<MPI_Request> m_requests_to_wait_on;
-  public:
-    const TaskBounds m_taskbounds;
-    const int m_num_of_subtasks;
-    const std::function<void(const int start, const int end)> m_lambda;
-    Task(const std::function<void(const int start, const int end)> lambda, const TaskBounds task_bounds, const int num_of_subtasks=1, const std::vector<Task*> dependencies=std::vector<Task*>());
-    bool HasFinished();
-    bool PrerequisitesDone();
-    bool Decrement();
-};
-
-typedef struct{
-  Task* task;
-  std::function<void()> lambda;
-// SubTask::SubTask(const SubTask& other):
-//   m_lambda(other.m_lambda), m_task(other.m_task){}
-// SubTask::SubTask(SubTask&& other):
-//   m_lambda(other.m_lambda), m_task(other.m_task){}
-  bool
-  IsReady(){
-    // return true;
-    return task->PrerequisitesDone();
-  }
-  void
-  Execute()
-  {
-    lambda();
-  }
-} SubTask;
 
 template <class T>
 class TsMinVector{
