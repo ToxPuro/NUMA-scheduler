@@ -71,6 +71,8 @@ class ThreadPool {
     //We use minvector instead of minheap since we want to iterate over the elements
     //Could change this in the future but at least std::queue can't be iterated over
     TsMinVector<std::pair<size_t, SubTask>> m_global_taskqueue;
+    void
+    ProcessTasks(const int i);
 	public:
 		ThreadPool(const int num_of_threads);
     TaskHandle 
@@ -83,8 +85,6 @@ class ThreadPool {
     WaitAll();
     void
     ReLaunch(const TaskHandle& task_handle);
-    void
-    ProcessTasks();
     void
     StartProcessing();
     void

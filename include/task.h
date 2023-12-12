@@ -3,12 +3,21 @@
 #include <vector>
 #include <latch.h>
 #include <mpi.h>
-typedef struct 
+typedef struct TaskBounds
 {
   const size_t start;
   const size_t end;
   size_t length() const{
     return end-start;
+  }
+  TaskBounds
+  GetInterval(const int interval_num, const int num_of_intervals)
+  {
+
+    return (TaskBounds){
+      interval_num * length() / num_of_intervals,
+      (interval_num + 1) * length() / num_of_intervals
+    };
   }
 } TaskBounds;
 

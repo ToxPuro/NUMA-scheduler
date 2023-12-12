@@ -4,15 +4,7 @@
 #include <algorithm>
 #include <scheduler.h>
 
-std::vector<TaskBounds> get_group_intervals(const size_t num_of_intervals, const TaskBounds task_bounds) {
-   std::vector<TaskBounds> res;
-   for(int i=0;i<num_of_intervals;i++)
-      res.emplace_back((TaskBounds){
-        i * task_bounds.length() / num_of_intervals,
-        (i+ 1) * task_bounds.length() / num_of_intervals
-      });
-    return res;
-}
+
 Task::Task(const std::function<void(const int start, const int end)> lambda, const TaskBounds task_bounds, const int num_of_subtasks, const std::vector<Task*> dependencies): 
   m_lambda(lambda), m_latch(num_of_subtasks),  m_taskbounds(task_bounds), m_num_of_subtasks(num_of_subtasks), m_dependencies(dependencies){}
 bool Task::HasFinished()
@@ -33,22 +25,13 @@ Task::Decrement()
   m_latch.count_down();
   return true;
 }
-std::vector<SubTask>
-GenerateSubTasks(Task* task, const bool is_async)
+std::function<void()>
+MakeAsync(std::function<void()> lambda)
 {
-  std::vector<SubTask> res;
-  for(TaskBounds taskbounds : get_group_intervals(task->m_num_of_subtasks, task->m_taskbounds))
-  {
-
-    res.emplace_back((SubTask){
-      task,
-      [=](){
-        task->m_lambda(taskbounds.start,taskbounds.end);
-        task->Decrement();
-      }
-    });
-  }
-  return res;
+  return [=](){
+    auto t = std::thread(lambda);
+    t.detach();
+  };
 }
 ThreadPool::ThreadPool(const int num_of_threads): 
   m_tasks({}), m_global_taskqueue(){
@@ -57,25 +40,31 @@ ThreadPool::ThreadPool(const int num_of_threads):
   };
 TaskHandle
 ThreadPool::Push(const std::function<void(const int start, const int end)> lambda, const int num_of_subtasks, const size_t start, const size_t end, const size_t priority, std::vector<TaskHandle> dependency_handles, const bool is_async){
-
   std::vector<Task*> dependencies;
   for(TaskHandle handle : dependency_handles)
     dependencies.emplace_back(m_tasks[handle.task_id]);
-  
-  auto task = new Task(
-    lambda, 
-    (TaskBounds){start, end},
-    num_of_subtasks,
-    dependencies
-  );
+  auto task_bounds = (TaskBounds){start,end};
+  auto task = new Task( lambda, task_bounds, num_of_subtasks, dependencies);
+  m_tasks.push_back(task);
 
-  m_tasks.emplace_back(task);
-
-  std::vector<std::pair<size_t, SubTask>> subtasks_with_priority;
-  for(SubTask subtask : GenerateSubTasks(task,is_async))
-    subtasks_with_priority.emplace_back(std::pair<size_t, SubTask>(priority, subtask));
-  for(int i=0;i<subtasks_with_priority.size();++i)
-    m_workers[i]->m_taskqueue.push_elems(subtasks_with_priority);
+  for(int i=0;i<num_of_subtasks;i++)
+  {
+    printf("created task\n");
+    auto taskbounds = task_bounds.GetInterval(i, num_of_subtasks);
+    auto func = [=](){
+        task->m_lambda(taskbounds.start,taskbounds.end);
+        task->Decrement();
+    };
+    m_workers[i % m_workers.size()]->m_taskqueue.push_elems({
+      std::pair<size_t, SubTask>(
+        priority,
+        (SubTask){
+          task,
+          is_async ? MakeAsync(func) : func
+        }
+      )
+    });
+  }
   return (TaskHandle){static_cast<int>(m_tasks.size()-1)};
 }
 bool
@@ -99,12 +88,11 @@ ThreadPool::ReLaunch(const TaskHandle& task_handle)
 {
 }
 void
-ThreadPool::ProcessTasks()
+ThreadPool::ProcessTasks(const int i)
 {
 
   while(m_keep_processing)
   {
-    int i = 0;
     std::optional<std::pair<size_t,SubTask>> possible_pair 
       = m_workers[i]->m_taskqueue.pop_first([](std::pair<size_t,SubTask> task){return task.second.IsReady();});
     if(possible_pair.has_value()) 
@@ -138,7 +126,7 @@ ThreadPool::StartProcessing()
   for(int i = 0;i<m_workers.size();++i){
     m_workers[i]->m_thread = std::thread(
       [=]{
-        this->ProcessTasks();
+        this->ProcessTasks(i);
       }
     );
     BindThreadToCore(m_workers[i]->m_thread, i);
