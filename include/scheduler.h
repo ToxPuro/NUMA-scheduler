@@ -37,7 +37,7 @@ TsMinVector<T>::push_elems(std::vector<T> const& vals)
     std::lock_guard<std::mutex> queue_lock{m_queue_mutex};
     for(auto val : vals)
       m_vector.push_back(val);
-    // std::sort(m_vector.begin(),m_vector.end());
+    std::sort(m_vector.begin(),m_vector.end());
     return true;
 }
 template <class T>
@@ -56,21 +56,25 @@ TsMinVector<T>::pop_first(std::function<bool(const T&)> condition)
   }
   return std::nullopt;
 }
+class ThreadWorker{
+  public:
+    TsMinVector<std::pair<size_t, SubTask>> m_taskqueue;
+    std::mutex m_mutex;
+    std::thread m_thread;
+};
 class ThreadPool {
   ThreadPool(const ThreadPool&) = delete;
 	private:
-    const int m_num_threads;
     volatile bool m_keep_processing;
-    std::vector<std::thread> m_threads;
     std::vector<Task*> m_tasks;
+    std::vector<std::unique_ptr<ThreadWorker>> m_workers;
     //We use minvector instead of minheap since we want to iterate over the elements
     //Could change this in the future but at least std::queue can't be iterated over
-    std::vector<std::unique_ptr<TsMinVector<std::pair<size_t, SubTask>>>> m_core_taskqueues;
     TsMinVector<std::pair<size_t, SubTask>> m_global_taskqueue;
 	public:
 		ThreadPool(const int num_of_threads);
     TaskHandle 
-    Push(const std::function<void(const int start, const int end)> lambda, const int num_of_subtasks, const size_t start, const size_t end, const size_t priority, std::vector<TaskHandle> dependency_handles=std::vector<TaskHandle>());
+    Push(const std::function<void(const int start, const int end)> lambda, const int num_of_subtasks, const size_t start, const size_t end, const size_t priority, std::vector<TaskHandle> dependency_handles=std::vector<TaskHandle>(), const bool is_async=false);
     bool
     Test(const TaskHandle& task_handle); 
     void

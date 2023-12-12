@@ -28,9 +28,14 @@ class Task {
     bool Decrement();
 };
 
-typedef struct{
+typedef struct SubTask{
   Task* task;
   std::function<void()> lambda;
+  //Order does not matter
+  bool operator<(const SubTask& other) const
+  {
+    return true;
+  }
   bool
   IsReady(){
     // return true;

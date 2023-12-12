@@ -34,7 +34,7 @@ Task::Decrement()
   return true;
 }
 std::vector<SubTask>
-GenerateSubTasks(Task* task)
+GenerateSubTasks(Task* task, const bool is_async)
 {
   std::vector<SubTask> res;
   for(TaskBounds taskbounds : get_group_intervals(task->m_num_of_subtasks, task->m_taskbounds))
@@ -51,29 +51,31 @@ GenerateSubTasks(Task* task)
   return res;
 }
 ThreadPool::ThreadPool(const int num_of_threads): 
-  m_threads(num_of_threads), m_num_threads(num_of_threads), m_tasks({}), m_global_taskqueue(){
+  m_tasks({}), m_global_taskqueue(){
     for(int i=0;i<num_of_threads;i++)
-      m_core_taskqueues.emplace_back(std::make_unique<TsMinVector<std::pair<size_t, SubTask>>>());
+      m_workers.emplace_back(std::make_unique<ThreadWorker>());
   };
 TaskHandle
-ThreadPool::Push(const std::function<void(const int start, const int end)> lambda, const int num_of_subtasks, const size_t start, const size_t end, const size_t priority, std::vector<TaskHandle> dependency_handles){
+ThreadPool::Push(const std::function<void(const int start, const int end)> lambda, const int num_of_subtasks, const size_t start, const size_t end, const size_t priority, std::vector<TaskHandle> dependency_handles, const bool is_async){
 
   std::vector<Task*> dependencies;
   for(TaskHandle handle : dependency_handles)
     dependencies.emplace_back(m_tasks[handle.task_id]);
-
-  m_tasks.emplace_back(new Task(
+  
+  auto task = new Task(
     lambda, 
     (TaskBounds){start, end},
     num_of_subtasks,
     dependencies
-  ));
+  );
+
+  m_tasks.emplace_back(task);
 
   std::vector<std::pair<size_t, SubTask>> subtasks_with_priority;
-  for(SubTask subtask : GenerateSubTasks(m_tasks[m_tasks.size()-1]))
+  for(SubTask subtask : GenerateSubTasks(task,is_async))
     subtasks_with_priority.emplace_back(std::pair<size_t, SubTask>(priority, subtask));
   for(int i=0;i<subtasks_with_priority.size();++i)
-    m_core_taskqueues[i]->push_elems(subtasks_with_priority);
+    m_workers[i]->m_taskqueue.push_elems(subtasks_with_priority);
   return (TaskHandle){static_cast<int>(m_tasks.size()-1)};
 }
 bool
@@ -104,7 +106,7 @@ ThreadPool::ProcessTasks()
   {
     int i = 0;
     std::optional<std::pair<size_t,SubTask>> possible_pair 
-      = m_core_taskqueues[i]->pop_first([](std::pair<size_t,SubTask> task){return task.second.IsReady();});
+      = m_workers[i]->m_taskqueue.pop_first([](std::pair<size_t,SubTask> task){return task.second.IsReady();});
     if(possible_pair.has_value()) 
       possible_pair.value().second.Execute();
     //if no core specific tasks then look into the global queue
@@ -131,15 +133,15 @@ BindThreadToCore(std::thread& t, const int core_id)
 void
 ThreadPool::StartProcessing()
 {
-  printf("starting with threads: %d\n", m_num_threads);
+  printf("starting with threads: %ld\n", m_workers.size());
   m_keep_processing=true;
-  for(int i = 0;i<m_num_threads;++i){
-    m_threads[i] = std::thread(
+  for(int i = 0;i<m_workers.size();++i){
+    m_workers[i]->m_thread = std::thread(
       [=]{
         this->ProcessTasks();
       }
     );
-    BindThreadToCore(m_threads[i], i);
+    BindThreadToCore(m_workers[i]->m_thread, i);
   }
 
     
@@ -149,6 +151,6 @@ ThreadPool::StopProcessing()
 {
   m_keep_processing = false;
   printf("STOPPED PROCESSING\n");
-  for(auto& t : m_threads)
-    t.join();
+  for(auto& worker : m_workers)
+    worker->m_thread.join();
 }
