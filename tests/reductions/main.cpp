@@ -13,7 +13,7 @@ int main()
   std::vector<TaskHandle> handles;
   for(int i=0;i<1;++i)
   {
-    TaskHandle task_handle = pool.Push(print_difference,4,1,100,1,{},false);
+    TaskHandle task_handle = pool.Push(print_difference,4,1,100,1,{},true);
     handles.push_back(task_handle);
   }
   // std::vector<Task*> dependencies;

@@ -25,18 +25,32 @@ Task::Decrement()
   m_latch.count_down();
   return true;
 }
+bool
+BindThreadToCore(std::thread& t, const int core_id)
+{
+    // Credit: https://eli.thegreenplace.net/2016/c11-threads-affinity-and-hyperthreading/
+    // Create a cpu_set_t object representing a set of CPUs. Clear it and mark
+    // only CPU core_id as set.
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(core_id, &cpuset);
+    const int rc = pthread_setaffinity_np(t.native_handle(),
+                                    sizeof(cpu_set_t), &cpuset);
+    return static_cast<bool>(1-rc);
+}
 std::function<void()>
-MakeAsync(std::function<void()> lambda)
+MakeAsync(std::function<void()> lambda, const int core_id)
 {
   return [=](){
     auto t = std::thread(lambda);
+    BindThreadToCore(t, core_id);
     t.detach();
   };
 }
 ThreadPool::ThreadPool(const int num_of_threads): 
   m_tasks({}), m_global_taskqueue(){
     for(int i=0;i<num_of_threads;i++)
-      m_workers.emplace_back(std::make_unique<ThreadWorker>());
+      m_workers.emplace_back(std::make_unique<ThreadWorker>(i));
   };
 TaskHandle
 ThreadPool::Push(const std::function<void(const int start, const int end)> lambda, const int num_of_subtasks, const size_t start, const size_t end, const size_t priority, std::vector<TaskHandle> dependency_handles, const bool is_async){
@@ -49,10 +63,9 @@ ThreadPool::Push(const std::function<void(const int start, const int end)> lambd
 
   for(int i=0;i<num_of_subtasks;i++)
   {
-    printf("created task\n");
-    auto taskbounds = task_bounds.GetInterval(i, num_of_subtasks);
+    const auto& [start, end]= task_bounds.GetInterval(i, num_of_subtasks);
     auto func = [=](){
-        task->m_lambda(taskbounds.start,taskbounds.end);
+        task->m_lambda(start,end);
         task->Decrement();
     };
     m_workers[i % m_workers.size()]->m_taskqueue.push_elems({
@@ -60,7 +73,7 @@ ThreadPool::Push(const std::function<void(const int start, const int end)> lambd
         priority,
         (SubTask){
           task,
-          is_async ? MakeAsync(func) : func
+          is_async ? MakeAsync(func, m_workers[i % m_workers.size()] -> m_core_num) : func
         }
       )
     });
@@ -88,13 +101,13 @@ ThreadPool::ReLaunch(const TaskHandle& task_handle)
 {
 }
 void
-ThreadPool::ProcessTasks(const int i)
+ThreadPool::ProcessTasks(ThreadWorker& worker)
 {
 
   while(m_keep_processing)
   {
     std::optional<std::pair<size_t,SubTask>> possible_pair 
-      = m_workers[i]->m_taskqueue.pop_first([](std::pair<size_t,SubTask> task){return task.second.IsReady();});
+      = worker.m_taskqueue.pop_first([](std::pair<size_t,SubTask> task){return task.second.IsReady();});
     if(possible_pair.has_value()) 
       possible_pair.value().second.Execute();
     //if no core specific tasks then look into the global queue
@@ -105,18 +118,11 @@ ThreadPool::ProcessTasks(const int i)
     }
   }
 }
-bool
-BindThreadToCore(std::thread& t, const int core_id)
+void
+ThreadWorker::Launch(std::function<void(ThreadWorker&)> lambda)
 {
-    // Credit: https://eli.thegreenplace.net/2016/c11-threads-affinity-and-hyperthreading/
-    // Create a cpu_set_t object representing a set of CPUs. Clear it and mark
-    // only CPU core_id as set.
-    cpu_set_t cpuset;
-    CPU_ZERO(&cpuset);
-    CPU_SET(core_id, &cpuset);
-    const int rc = pthread_setaffinity_np(t.native_handle(),
-                                    sizeof(cpu_set_t), &cpuset);
-    return static_cast<bool>(1-rc);
+  m_thread = std::thread([=]{ lambda(*this);});
+  BindThreadToCore(m_thread, m_core_num);
 }
 void
 ThreadPool::StartProcessing()
@@ -124,12 +130,7 @@ ThreadPool::StartProcessing()
   printf("starting with threads: %ld\n", m_workers.size());
   m_keep_processing=true;
   for(int i = 0;i<m_workers.size();++i){
-    m_workers[i]->m_thread = std::thread(
-      [=]{
-        this->ProcessTasks(i);
-      }
-    );
-    BindThreadToCore(m_workers[i]->m_thread, i);
+    m_workers[i]->Launch([&](ThreadWorker& x){ this ->ProcessTasks(x);});
   }
 
     

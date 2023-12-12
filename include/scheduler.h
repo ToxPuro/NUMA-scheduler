@@ -61,6 +61,12 @@ class ThreadWorker{
     TsMinVector<std::pair<size_t, SubTask>> m_taskqueue;
     std::mutex m_mutex;
     std::thread m_thread;
+    const int m_core_num;
+    ThreadWorker(const int core_num):
+      m_core_num(core_num){}
+    void
+    Launch(std::function<void(ThreadWorker&)> lambda);
+
 };
 class ThreadPool {
   ThreadPool(const ThreadPool&) = delete;
@@ -72,7 +78,7 @@ class ThreadPool {
     //Could change this in the future but at least std::queue can't be iterated over
     TsMinVector<std::pair<size_t, SubTask>> m_global_taskqueue;
     void
-    ProcessTasks(const int i);
+    ProcessTasks(ThreadWorker& worker);
 	public:
 		ThreadPool(const int num_of_threads);
     TaskHandle 
