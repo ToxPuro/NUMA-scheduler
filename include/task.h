@@ -2,7 +2,13 @@
 #include <functional>
 #include <vector>
 #include <latch.h>
+#include <thread>
 #include <mpi.h>
+typedef enum 
+{
+  Default,
+  Async
+} TaskType;
 typedef struct TaskBounds
 {
   const size_t start;
@@ -26,7 +32,7 @@ class Task {
   private:
     const std::vector<Task*> m_dependencies;
     Latch m_latch;
-    std::vector<MPI_Request> m_requests_to_wait_on;
+    // std::vector<std::thread> m_threads_to_wait_on;
   public:
     const TaskBounds m_taskbounds;
     const int m_num_of_subtasks;
@@ -35,6 +41,10 @@ class Task {
     bool HasFinished();
     bool PrerequisitesDone();
     bool Decrement();
+    std::function<void()>
+    MakeAsync(std::function<void()> lambda, const int core_id);
+    void
+    Wait();
 };
 
 typedef struct SubTask{
@@ -47,7 +57,6 @@ typedef struct SubTask{
   }
   bool
   IsReady(){
-    // return true;
     return task->PrerequisitesDone();
   }
   void

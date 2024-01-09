@@ -13,7 +13,7 @@ int main()
   std::vector<TaskHandle> handles;
   for(int i=0;i<1;++i)
   {
-    TaskHandle task_handle = pool.Push(print_difference,4,1,100,1,{},true);
+    TaskHandle task_handle = pool.Push(print_difference,3,1,100,1,{},Async);
     handles.push_back(task_handle);
   }
   // std::vector<Task*> dependencies;
@@ -34,7 +34,6 @@ int main()
   // Task* a = &task;
 
   // a->Decrement();
-  pool.StartProcessing();
   // pool.ProcessTasks();
   // for(auto handle : handles)
   //   pool.Wait(handle);

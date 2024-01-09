@@ -19,6 +19,12 @@ bool Task::PrerequisitesDone()
     return task->HasFinished();
   });
 }
+void
+Task::Wait()
+{
+  while(!m_latch.try_wait()){}
+  return;
+}
 bool
 Task::Decrement()
 {
@@ -39,21 +45,28 @@ BindThreadToCore(std::thread& t, const int core_id)
     return static_cast<bool>(1-rc);
 }
 std::function<void()>
-MakeAsync(std::function<void()> lambda, const int core_id)
+Task::MakeAsync(std::function<void()> lambda, const int core_id)
 {
   return [=](){
+    printf("LaunchAsync\n");
     auto t = std::thread(lambda);
     BindThreadToCore(t, core_id);
     t.detach();
+    // t.detach();
+    // this->m_threads_to_wait_on.push_back(std::move(t));
+    // printf("threads: %ld", this->m_threads_to_wait_on.size());
+    // this->m_threads_to_wait_on.emplace_back(std::thread(lambda));
+    // BindThreadToCore(this->m_threads_to_wait_on[m_threads_to_wait_on.size()-1], core_id);
   };
 }
 ThreadPool::ThreadPool(const int num_of_threads): 
   m_tasks({}), m_global_taskqueue(){
     for(int i=0;i<num_of_threads;i++)
       m_workers.emplace_back(std::make_unique<ThreadWorker>(i));
+    StartProcessing();
   };
 TaskHandle
-ThreadPool::Push(const std::function<void(const int start, const int end)> lambda, const int num_of_subtasks, const size_t start, const size_t end, const size_t priority, std::vector<TaskHandle> dependency_handles, const bool is_async){
+ThreadPool::Push(const std::function<void(const int start, const int end)> lambda, const int num_of_subtasks, const size_t start, const size_t end, const size_t priority, std::vector<TaskHandle> dependency_handles, TaskType type){
   std::vector<Task*> dependencies;
   for(TaskHandle handle : dependency_handles)
     dependencies.emplace_back(m_tasks[handle.task_id]);
@@ -73,11 +86,12 @@ ThreadPool::Push(const std::function<void(const int start, const int end)> lambd
         priority,
         (SubTask){
           task,
-          is_async ? MakeAsync(func, m_workers[i % m_workers.size()] -> m_core_num) : func
+          type == Async ? task->MakeAsync(func, m_workers[i % m_workers.size()] -> m_core_num) : func
         }
       )
     });
   }
+  m_new_tasks_cv.notify_all();
   return (TaskHandle){static_cast<int>(m_tasks.size()-1)};
 }
 bool
@@ -88,13 +102,13 @@ ThreadPool::Test(const TaskHandle& task_handle)
 void
 ThreadPool::Wait(const TaskHandle& task_handle)
 {
-  while(!m_tasks[task_handle.task_id]->HasFinished());
+  m_tasks[task_handle.task_id]->Wait();
 }
 void
 ThreadPool::WaitAll()
 {
-  for(auto& task : m_tasks)
-    while(!task->HasFinished());
+  for(auto task : m_tasks)
+    task->Wait();
 }
 void
 ThreadPool::ReLaunch(const TaskHandle& task_handle)
@@ -106,6 +120,11 @@ ThreadPool::ProcessTasks(ThreadWorker& worker)
 
   while(m_keep_processing)
   {
+    if(worker.m_taskqueue.empty() && m_global_taskqueue.empty())
+    {
+      std::unique_lock lock(worker.m_mutex);
+      m_new_tasks_cv.wait(lock, [&]{ return !( worker.m_taskqueue.empty() && m_global_taskqueue.empty()) || !m_keep_processing;});
+    }
     std::optional<std::pair<size_t,SubTask>> possible_pair 
       = worker.m_taskqueue.pop_first([](std::pair<size_t,SubTask> task){return task.second.IsReady();});
     if(possible_pair.has_value()) 
@@ -132,14 +151,15 @@ ThreadPool::StartProcessing()
   for(int i = 0;i<m_workers.size();++i){
     m_workers[i]->Launch([&](ThreadWorker& x){ this ->ProcessTasks(x);});
   }
-
-    
 }
 void
 ThreadPool::StopProcessing()
 {
   m_keep_processing = false;
+  m_new_tasks_cv.notify_all();
   printf("STOPPED PROCESSING\n");
   for(auto& worker : m_workers)
     worker->m_thread.join();
+  
 }
+

@@ -5,6 +5,7 @@
 #include <optional>
 #include <task.h>
 #include <thread>
+#include <condition_variable>
 typedef struct 
 {
   const int task_id;
@@ -28,6 +29,11 @@ class TsMinVector{
     size()
     {
       return m_vector.size();
+    }
+    bool 
+    empty()
+    {
+      return m_vector.empty();
     }
 };
 template <class T>
@@ -74,15 +80,18 @@ class ThreadPool {
     volatile bool m_keep_processing;
     std::vector<Task*> m_tasks;
     std::vector<std::unique_ptr<ThreadWorker>> m_workers;
+    std::condition_variable m_new_tasks_cv;
     //We use minvector instead of minheap since we want to iterate over the elements
     //Could change this in the future but at least std::queue can't be iterated over
     TsMinVector<std::pair<size_t, SubTask>> m_global_taskqueue;
     void
     ProcessTasks(ThreadWorker& worker);
+    void
+    StartProcessing();
 	public:
 		ThreadPool(const int num_of_threads);
     TaskHandle 
-    Push(const std::function<void(const int start, const int end)> lambda, const int num_of_subtasks, const size_t start, const size_t end, const size_t priority, std::vector<TaskHandle> dependency_handles=std::vector<TaskHandle>(), const bool is_async=false);
+    Push(const std::function<void(const int start, const int end)> lambda, const int num_of_subtasks, const size_t start, const size_t end, const size_t priority, std::vector<TaskHandle> dependency_handles=std::vector<TaskHandle>(), TaskType type=Default);
     bool
     Test(const TaskHandle& task_handle); 
     void
@@ -91,8 +100,6 @@ class ThreadPool {
     WaitAll();
     void
     ReLaunch(const TaskHandle& task_handle);
-    void
-    StartProcessing();
     void
     StopProcessing();
     void
