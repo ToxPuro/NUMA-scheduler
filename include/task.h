@@ -7,7 +7,8 @@
 typedef enum 
 {
   Default,
-  Async
+  Async,
+  Critical
 } TaskType;
 typedef struct TaskBounds
 {
@@ -22,7 +23,9 @@ typedef struct TaskBounds
 
     return (TaskBounds){
       interval_num * length() / num_of_intervals,
-      (interval_num + 1) * length() / num_of_intervals
+      interval_num == num_of_intervals? 
+        length():
+        (interval_num + 1) * length() / num_of_intervals
     };
   }
 } TaskBounds;
@@ -32,7 +35,8 @@ class Task {
   private:
     const std::vector<Task*> m_dependencies;
     Latch m_latch;
-    // std::vector<std::thread> m_threads_to_wait_on;
+  public:
+    std::mutex critical_section_mutex;
   public:
     const TaskBounds m_taskbounds;
     const int m_num_of_subtasks;
@@ -43,6 +47,8 @@ class Task {
     bool Decrement();
     std::function<void()>
     MakeAsync(std::function<void()> lambda, const int core_id);
+    std::function<void()>
+    MakeCritical(std::function<void()> lambda);
     void
     Wait();
 };

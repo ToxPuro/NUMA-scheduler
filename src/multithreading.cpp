@@ -59,6 +59,14 @@ Task::MakeAsync(std::function<void()> lambda, const int core_id)
     // BindThreadToCore(this->m_threads_to_wait_on[m_threads_to_wait_on.size()-1], core_id);
   };
 }
+std::function<void()>
+Task::MakeCritical(std::function<void()> lambda)
+{
+  return [=](){
+    std::lock_guard<std::mutex> critical_section_lock{critical_section_mutex};
+    lambda();
+  };
+}
 ThreadPool::ThreadPool(const int num_of_threads): 
   m_tasks({}), m_global_taskqueue(){
     for(int i=0;i<num_of_threads;i++)
@@ -86,7 +94,11 @@ ThreadPool::Push(const std::function<void(const int start, const int end)> lambd
         priority,
         (SubTask){
           task,
-          type == Async ? task->MakeAsync(func, m_workers[i % m_workers.size()] -> m_core_num) : func
+          type == Async? 
+                    task->MakeAsync(func, m_workers[i % m_workers.size()] -> m_core_num): 
+          type == Critical?
+                    task->MakeCritical(func):
+                    func
         }
       )
     });
@@ -117,7 +129,6 @@ ThreadPool::ReLaunch(const TaskHandle& task_handle)
 void
 ThreadPool::ProcessTasks(ThreadWorker& worker)
 {
-
   while(m_keep_processing)
   {
     if(worker.m_taskqueue.empty() && m_global_taskqueue.empty())
@@ -146,7 +157,7 @@ ThreadWorker::Launch(std::function<void(ThreadWorker&)> lambda)
 void
 ThreadPool::StartProcessing()
 {
-  printf("starting with threads: %ld\n", m_workers.size());
+  printf("starting with %ld threads\n", m_workers.size());
   m_keep_processing=true;
   for(int i = 0;i<m_workers.size();++i){
     m_workers[i]->Launch([&](ThreadWorker& x){ this ->ProcessTasks(x);});
