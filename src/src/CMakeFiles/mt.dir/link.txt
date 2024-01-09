@@ -1,2 +1,0 @@
-/usr/bin/ar qc libmt.a CMakeFiles/mt.dir/multithreading.cpp.o
-/usr/bin/ranlib libmt.a
