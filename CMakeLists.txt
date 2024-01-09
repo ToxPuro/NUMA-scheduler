@@ -1,6 +1,13 @@
 cmake_minimum_required(VERSION 3.18)
+project(numa-scheduler LANGUAGES C CXX Fortran)
 
-project(mt-scheduler C CXX)
+include(FortranCInterface)
+# if you are working with C and Fortran
+FortranCInterface_VERIFY()
+
+# if you are working with C++ and Fortran
+FortranCInterface_VERIFY(CXX)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -13,4 +20,4 @@ include_directories(${MPI_CXX_INCLUDE_DIRS})
 include_directories(include)
 
 add_subdirectory(src)
-add_subdirectory(tests/reductions)
+add_subdirectory(tests)
