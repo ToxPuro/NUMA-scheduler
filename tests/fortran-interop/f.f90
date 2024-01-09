@@ -21,9 +21,9 @@ END TYPE TaskHandle
     END FUNCTION call_it
   END INTERFACE
   INTERFACE
-    SUBROUTINE run(func) BIND(C)
+    SUBROUTINE run(calc_func, reduce_func) BIND(C)
     use, INTRINSIC :: iso_c_binding
-    type(c_funptr), intent(in), value :: func
+    type(c_funptr), intent(in), value :: calc_func, reduce_func
     END SUBROUTINE run
   END INTERFACE
 
@@ -35,23 +35,17 @@ CONTAINS
           type(TaskHandle), INTENT(IN), VALUE :: arg
     double_it%task_id = 2*arg%task_id
   END FUNCTION double_it
-  subroutine print_x(x) 
-    use omp_lib
-    integer :: x
-    print*,"X is: ",x
-    reduce_res = reduce_res + x
-    print*,"reduce_res is", reduce_res
-  endsubroutine print_x
-  subroutine reduce_intermediates()
-    
-  endsubroutine reduce_intermediates
-  subroutine hello_ints(x,y) BIND(C)
-    use ISO_C_BINDING, only : c_int
-    !integer(kind=c_int) :: x,y
+  subroutine reduce_intermediates(x,y) BIND(C)
     integer, value :: x,y
-    call print_x(x)
-    call print_x(y)
+    print*,"HI from reduce_intermediates"
     p_reduce_res = p_reduce_res + reduce_res
+  endsubroutine reduce_intermediates
+  subroutine hello_ints(start_c,end) BIND(C)
+    use ISO_C_BINDING, only : c_int
+    integer, value :: start_c,end
+    integer :: start
+    start = start_c+1
+    reduce_res = sum(test_arr(start:end))
   end subroutine hello_ints
 
   ! Call C function.
@@ -68,7 +62,10 @@ CONTAINS
 
     END DO
     p_reduce_res => reduce_res
-    call run(c_funloc(hello_ints))
+    do i = 1,15
+      test_arr(i) = i
+    enddo
+    call run(c_funloc(hello_ints), c_funloc(reduce_intermediates))
     print*,"reduce res = ",reduce_res
   END SUBROUTINE foobar
 
