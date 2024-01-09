@@ -5,37 +5,37 @@
 #include <scheduler.h>
 
 
-Task::Task(const std::function<void(const int start, const int end)> lambda, const TaskBounds task_bounds, const int num_of_subtasks, const std::vector<Task*> dependencies, DependencyType dependency_type): 
+NsTask::NsTask(const std::function<void(const int start, const int end)> lambda, const TaskBounds task_bounds, const int num_of_subtasks, const std::vector<NsTask*> dependencies, DependencyType dependency_type): 
   m_lambda(lambda), m_latch(num_of_subtasks),  m_taskbounds(task_bounds), m_num_of_subtasks(num_of_subtasks), m_dependencies(dependencies), m_dependency_type(dependency_type), subtasks_done(num_of_subtasks, false){}
-bool Task::HasFinished()
+bool NsTask::HasFinished()
 {
   return m_latch.try_wait();
 }
-bool Task::PrerequisitesDone(const int subtask_id)
+bool NsTask::PrerequisitesDone(const int subtask_id)
 {
   if(m_dependencies.empty())
     return true;
   switch (m_dependency_type)
   {
   case All:
-    return std::all_of(m_dependencies.begin(), m_dependencies.end(), [](Task* task){
+    return std::all_of(m_dependencies.begin(), m_dependencies.end(), [](NsTask* task){
       return task->HasFinished();
     });
   case Single:
-    return std::all_of(m_dependencies.begin(), m_dependencies.end(), [=](Task* task){
+    return std::all_of(m_dependencies.begin(), m_dependencies.end(), [=](NsTask* task){
       return task->subtasks_done[subtask_id];
     });
   }
   
 }
 void
-Task::Wait()
+NsTask::Wait()
 {
   while(!m_latch.try_wait()){}
   return;
 }
 bool
-Task::Decrement()
+NsTask::Decrement()
 {
   m_latch.count_down();
   return true;
@@ -54,7 +54,7 @@ BindThreadToCore(std::thread& t, const int core_id)
     return static_cast<bool>(1-rc);
 }
 std::function<void()>
-Task::MakeAsync(std::function<void()> lambda, const int core_id)
+NsTask::MakeAsync(std::function<void()> lambda, const int core_id)
 {
   return [=](){
     printf("LaunchAsync\n");
@@ -69,7 +69,7 @@ Task::MakeAsync(std::function<void()> lambda, const int core_id)
   };
 }
 std::function<void()>
-Task::MakeCritical(std::function<void()> lambda)
+NsTask::MakeCritical(std::function<void()> lambda)
 {
   return [=](){
     std::lock_guard<std::mutex> critical_section_lock{critical_section_mutex};
@@ -84,11 +84,11 @@ ThreadPool::ThreadPool(const int num_of_threads):
   };
 TaskHandle
 ThreadPool::Push(const std::function<void(const int start, const int end)> lambda, const int num_of_subtasks, const size_t start, const size_t end, const size_t priority, std::vector<TaskHandle> dependency_handles, TaskType type, DependencyType dependency_type){
-  std::vector<Task*> dependencies;
+  std::vector<NsTask*> dependencies;
   for(TaskHandle handle : dependency_handles)
     dependencies.emplace_back(m_tasks[handle.task_id]);
   auto task_bounds = (TaskBounds){start,end};
-  auto task = new Task( lambda, task_bounds, num_of_subtasks, dependencies, dependency_type);
+  auto task = new NsTask( lambda, task_bounds, num_of_subtasks, dependencies, dependency_type);
   m_tasks.push_back(task);
 
   for(int i=0;i<num_of_subtasks;i++)

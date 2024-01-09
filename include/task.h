@@ -36,10 +36,10 @@ typedef struct TaskBounds
   }
 } TaskBounds;
 
-class Task {
-  Task(const Task&) = delete;
+class NsTask {
+  NsTask(const NsTask&) = delete;
   private:
-    const std::vector<Task*> m_dependencies;
+    const std::vector<NsTask*> m_dependencies;
     Latch m_latch;
     DependencyType m_dependency_type;
   public:
@@ -49,7 +49,7 @@ class Task {
     const TaskBounds m_taskbounds;
     const int m_num_of_subtasks;
     const std::function<void(const int start, const int end)> m_lambda;
-    Task(const std::function<void(const int start, const int end)> lambda, const TaskBounds task_bounds, const int num_of_subtasks=1, const std::vector<Task*> dependencies=std::vector<Task*>(), DependencyType depency_type=All);
+    NsTask(const std::function<void(const int start, const int end)> lambda, const TaskBounds task_bounds, const int num_of_subtasks=1, const std::vector<NsTask*> dependencies=std::vector<NsTask*>(), DependencyType depency_type=All);
     bool HasFinished();
     bool PrerequisitesDone(const int subtask_id);
     bool Decrement();
@@ -62,7 +62,7 @@ class Task {
 };
 
 typedef struct SubTask{
-  Task* task;
+  NsTask* task;
   int id;
   std::function<void()> lambda;
   //Order does not matter
