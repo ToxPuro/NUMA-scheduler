@@ -45,6 +45,9 @@ CONTAINS
     integer, value :: start_c,end
     integer :: start
     start = start_c+1
+    if(start == 1) then
+      call sleep(10)
+    endif
     reduce_res = sum(test_arr(start:end))
   end subroutine hello_ints
 

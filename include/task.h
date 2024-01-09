@@ -10,6 +10,12 @@ typedef enum
   Async,
   Critical
 } TaskType;
+typedef enum
+{
+  All,
+  Single
+} DependencyType;
+
 typedef struct TaskBounds
 {
   const size_t start;
@@ -35,15 +41,17 @@ class Task {
   private:
     const std::vector<Task*> m_dependencies;
     Latch m_latch;
+    DependencyType m_dependency_type;
   public:
+    std::vector<bool> subtasks_done;
     std::mutex critical_section_mutex;
   public:
     const TaskBounds m_taskbounds;
     const int m_num_of_subtasks;
     const std::function<void(const int start, const int end)> m_lambda;
-    Task(const std::function<void(const int start, const int end)> lambda, const TaskBounds task_bounds, const int num_of_subtasks=1, const std::vector<Task*> dependencies=std::vector<Task*>());
+    Task(const std::function<void(const int start, const int end)> lambda, const TaskBounds task_bounds, const int num_of_subtasks=1, const std::vector<Task*> dependencies=std::vector<Task*>(), DependencyType depency_type=All);
     bool HasFinished();
-    bool PrerequisitesDone();
+    bool PrerequisitesDone(const int subtask_id);
     bool Decrement();
     std::function<void()>
     MakeAsync(std::function<void()> lambda, const int core_id);
@@ -55,6 +63,7 @@ class Task {
 
 typedef struct SubTask{
   Task* task;
+  int id;
   std::function<void()> lambda;
   //Order does not matter
   bool operator<(const SubTask& other) const
@@ -63,7 +72,7 @@ typedef struct SubTask{
   }
   bool
   IsReady(){
-    return task->PrerequisitesDone();
+    return task->PrerequisitesDone(id);
   }
   void
   Execute()

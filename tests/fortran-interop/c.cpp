@@ -18,7 +18,7 @@ void run(void (*calc_func)(const int a, const int b), void (*reduce_func)(const 
   for(int i=0;i<1;++i)
   {
     TaskHandle task_handle = pool.Push(calc_func,3,0,15,1,{},Default); 
-    pool.Push(reduce_func,3,0,10,1,{task_handle},Critical);
+    pool.Push(reduce_func,3,0,10,1,{task_handle},Critical,Single);
   }
   pool.WaitAll();
   pool.StopProcessing();

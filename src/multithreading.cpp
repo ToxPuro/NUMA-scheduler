@@ -5,19 +5,28 @@
 #include <scheduler.h>
 
 
-Task::Task(const std::function<void(const int start, const int end)> lambda, const TaskBounds task_bounds, const int num_of_subtasks, const std::vector<Task*> dependencies): 
-  m_lambda(lambda), m_latch(num_of_subtasks),  m_taskbounds(task_bounds), m_num_of_subtasks(num_of_subtasks), m_dependencies(dependencies){}
+Task::Task(const std::function<void(const int start, const int end)> lambda, const TaskBounds task_bounds, const int num_of_subtasks, const std::vector<Task*> dependencies, DependencyType dependency_type): 
+  m_lambda(lambda), m_latch(num_of_subtasks),  m_taskbounds(task_bounds), m_num_of_subtasks(num_of_subtasks), m_dependencies(dependencies), m_dependency_type(dependency_type), subtasks_done(num_of_subtasks, false){}
 bool Task::HasFinished()
 {
   return m_latch.try_wait();
 }
-bool Task::PrerequisitesDone()
+bool Task::PrerequisitesDone(const int subtask_id)
 {
   if(m_dependencies.empty())
     return true;
-  return std::all_of(m_dependencies.begin(), m_dependencies.end(), [](Task* task){
-    return task->HasFinished();
-  });
+  switch (m_dependency_type)
+  {
+  case All:
+    return std::all_of(m_dependencies.begin(), m_dependencies.end(), [](Task* task){
+      return task->HasFinished();
+    });
+  case Single:
+    return std::all_of(m_dependencies.begin(), m_dependencies.end(), [=](Task* task){
+      return task->subtasks_done[subtask_id];
+    });
+  }
+  
 }
 void
 Task::Wait()
@@ -74,12 +83,12 @@ ThreadPool::ThreadPool(const int num_of_threads):
     StartProcessing();
   };
 TaskHandle
-ThreadPool::Push(const std::function<void(const int start, const int end)> lambda, const int num_of_subtasks, const size_t start, const size_t end, const size_t priority, std::vector<TaskHandle> dependency_handles, TaskType type){
+ThreadPool::Push(const std::function<void(const int start, const int end)> lambda, const int num_of_subtasks, const size_t start, const size_t end, const size_t priority, std::vector<TaskHandle> dependency_handles, TaskType type, DependencyType dependency_type){
   std::vector<Task*> dependencies;
   for(TaskHandle handle : dependency_handles)
     dependencies.emplace_back(m_tasks[handle.task_id]);
   auto task_bounds = (TaskBounds){start,end};
-  auto task = new Task( lambda, task_bounds, num_of_subtasks, dependencies);
+  auto task = new Task( lambda, task_bounds, num_of_subtasks, dependencies, dependency_type);
   m_tasks.push_back(task);
 
   for(int i=0;i<num_of_subtasks;i++)
@@ -87,6 +96,7 @@ ThreadPool::Push(const std::function<void(const int start, const int end)> lambd
     const auto& [start, end]= task_bounds.GetInterval(i, num_of_subtasks);
     auto func = [=](){
         task->m_lambda(start,end);
+        task->subtasks_done[i]=true;
         task->Decrement();
     };
     m_workers[i % m_workers.size()]->m_taskqueue.push_elems({
@@ -94,6 +104,7 @@ ThreadPool::Push(const std::function<void(const int start, const int end)> lambd
         priority,
         (SubTask){
           task,
+          i,
           type == Async? 
                     task->MakeAsync(func, m_workers[i % m_workers.size()] -> m_core_num): 
           type == Critical?

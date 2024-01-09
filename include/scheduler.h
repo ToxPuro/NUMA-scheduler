@@ -91,7 +91,7 @@ class ThreadPool {
 	public:
 		ThreadPool(const int num_of_threads);
     TaskHandle 
-    Push(const std::function<void(const int start, const int end)> lambda, const int num_of_subtasks, const size_t start, const size_t end, const size_t priority, std::vector<TaskHandle> dependency_handles=std::vector<TaskHandle>(), TaskType type=Default);
+    Push(const std::function<void(const int start, const int end)> lambda, const int num_of_subtasks, const size_t start, const size_t end, const size_t priority, std::vector<TaskHandle> dependency_handles=std::vector<TaskHandle>(), TaskType type=Default, DependencyType=All);
     bool
     Test(const TaskHandle& task_handle); 
     void
