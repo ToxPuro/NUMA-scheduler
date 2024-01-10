@@ -5,8 +5,9 @@ class Latch{
   Latch(Latch&&) = delete;
   private:
     std::atomic<int> counter;
+    const int original_value;
   public:
-    Latch(const int starting_value): counter(starting_value){}
+    Latch(const int starting_value): counter(starting_value), original_value(starting_value){}
     void
     count_down(){
       counter.fetch_sub(1, std::memory_order_release);
@@ -20,5 +21,11 @@ class Latch{
     wait()
     {
       while(!try_wait());
+    }
+    void
+    reset()
+    {
+      wait();
+      counter = original_value;
     }
 };

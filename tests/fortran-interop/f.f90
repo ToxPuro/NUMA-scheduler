@@ -48,7 +48,7 @@ CONTAINS
     if(start == 1) then
       call sleep(10)
     endif
-    reduce_res = sum(test_arr(start:end))
+    reduce_res = reduce_res + sum(test_arr(start:end))
   end subroutine hello_ints
 
   ! Call C function.

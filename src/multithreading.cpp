@@ -5,8 +5,8 @@
 #include <scheduler.h>
 
 
-NsTask::NsTask(const std::function<void(const int start, const int end)> lambda, const TaskBounds task_bounds, const int num_of_subtasks, const std::vector<NsTask*> dependencies, DependencyType dependency_type): 
-  m_lambda(lambda), m_latch(num_of_subtasks),  m_taskbounds(task_bounds), m_num_of_subtasks(num_of_subtasks), m_dependencies(dependencies), m_dependency_type(dependency_type), subtasks_done(num_of_subtasks, false){}
+NsTask::NsTask(const std::function<void(const int start, const int end)> lambda, const TaskBounds task_bounds, const int num_of_subtasks, const std::vector<NsTask*> dependencies, DependencyType dependency_type, const int priority, TaskType type): 
+  m_lambda(lambda), m_latch(num_of_subtasks),  task_bounds(task_bounds), num_of_subtasks(num_of_subtasks), m_dependencies(dependencies), m_dependency_type(dependency_type), subtasks_done(num_of_subtasks, false), priority(priority), type(type){}
 bool NsTask::HasFinished()
 {
   return m_latch.try_wait();
@@ -25,8 +25,9 @@ bool NsTask::PrerequisitesDone(const int subtask_id)
     return std::all_of(m_dependencies.begin(), m_dependencies.end(), [=](NsTask* task){
       return task->subtasks_done[subtask_id];
     });
+  default:
+    return false;
   }
-  
 }
 void
 NsTask::Wait()
@@ -39,6 +40,13 @@ NsTask::Decrement()
 {
   m_latch.count_down();
   return true;
+}
+void
+NsTask::Reset()
+{
+  m_latch.reset();
+  for(int i=0;i<subtasks_done.size();i++)
+    subtasks_done[i]=false;
 }
 bool
 BindThreadToCore(std::thread& t, const int core_id)
@@ -82,32 +90,26 @@ ThreadPool::ThreadPool(const int num_of_threads):
       m_workers.emplace_back(std::make_unique<ThreadWorker>(i));
     StartProcessing();
   };
-TaskHandle
-ThreadPool::Push(const std::function<void(const int start, const int end)> lambda, const int num_of_subtasks, const size_t start, const size_t end, const size_t priority, std::vector<TaskHandle> dependency_handles, TaskType type, DependencyType dependency_type){
-  std::vector<NsTask*> dependencies;
-  for(TaskHandle handle : dependency_handles)
-    dependencies.emplace_back(m_tasks[handle.task_id]);
-  auto task_bounds = (TaskBounds){start,end};
-  auto task = new NsTask( lambda, task_bounds, num_of_subtasks, dependencies, dependency_type);
-  m_tasks.push_back(task);
-
-  for(int i=0;i<num_of_subtasks;i++)
+void
+ThreadPool::PushSubtasks(NsTask* task)
+{
+  for(int i=0;i<task->num_of_subtasks;i++)
   {
-    const auto& [start, end]= task_bounds.GetInterval(i, num_of_subtasks);
+    const auto& [start, end]= task->task_bounds.GetInterval(i, task->num_of_subtasks);
     auto func = [=](){
         task->m_lambda(start,end);
         task->subtasks_done[i]=true;
         task->Decrement();
     };
     m_workers[i % m_workers.size()]->m_taskqueue.push_elems({
-      std::pair<size_t, SubTask>(
-        priority,
+      std::pair<int, SubTask>(
+        task->priority,
         (SubTask){
           task,
           i,
-          type == Async? 
+          task->type == Async? 
                     task->MakeAsync(func, m_workers[i % m_workers.size()] -> m_core_num): 
-          type == Critical?
+          task->type == Critical?
                     task->MakeCritical(func):
                     func
         }
@@ -115,6 +117,16 @@ ThreadPool::Push(const std::function<void(const int start, const int end)> lambd
     });
   }
   m_new_tasks_cv.notify_all();
+}
+TaskHandle
+ThreadPool::Push(const std::function<void(const int start, const int end)> lambda, const int num_of_subtasks, const size_t start, const size_t end, const int priority, std::vector<TaskHandle> dependency_handles, TaskType type, DependencyType dependency_type){
+  std::vector<NsTask*> dependencies;
+  for(TaskHandle handle : dependency_handles)
+    dependencies.emplace_back(m_tasks[handle.task_id]);
+  auto task_bounds = (TaskBounds){start,end};
+  auto task = new NsTask( lambda, task_bounds, num_of_subtasks, dependencies, dependency_type, priority, type);
+  m_tasks.push_back(task);
+  PushSubtasks(task);
   return (TaskHandle){static_cast<int>(m_tasks.size()-1)};
 }
 bool
@@ -134,8 +146,13 @@ ThreadPool::WaitAll()
     task->Wait();
 }
 void
-ThreadPool::ReLaunch(const TaskHandle& task_handle)
+ThreadPool::ReLaunchAll()
 {
+  for(auto task : m_tasks)
+  {
+    task->Reset();
+    PushSubtasks(task);
+  }
 }
 void
 ThreadPool::ProcessTasks(ThreadWorker& worker)
@@ -147,14 +164,14 @@ ThreadPool::ProcessTasks(ThreadWorker& worker)
       std::unique_lock lock(worker.m_mutex);
       m_new_tasks_cv.wait(lock, [&]{ return !( worker.m_taskqueue.empty() && m_global_taskqueue.empty()) || !m_keep_processing;});
     }
-    std::optional<std::pair<size_t,SubTask>> possible_pair 
-      = worker.m_taskqueue.pop_first([](std::pair<size_t,SubTask> task){return task.second.IsReady();});
+    std::optional<std::pair<int,SubTask>> possible_pair 
+      = worker.m_taskqueue.pop_first([](std::pair<int,SubTask> task){return task.second.IsReady();});
     if(possible_pair.has_value()) 
       possible_pair.value().second.Execute();
     //if no core specific tasks then look into the global queue
     else{
-      std::optional<std::pair<size_t,SubTask>> possible_pair 
-        = m_global_taskqueue.pop_first([](std::pair<size_t,SubTask> task){return task.second.IsReady();});
+      std::optional<std::pair<int,SubTask>> possible_pair 
+        = m_global_taskqueue.pop_first([](std::pair<int,SubTask> task){return task.second.IsReady();});
       if(possible_pair.has_value()) possible_pair.value().second.Execute();
     }
   }

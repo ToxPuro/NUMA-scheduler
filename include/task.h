@@ -24,7 +24,7 @@ typedef struct TaskBounds
     return end-start;
   }
   TaskBounds
-  GetInterval(const int interval_num, const int num_of_intervals)
+  GetInterval(const int interval_num, const int num_of_intervals) const
   {
 
     return (TaskBounds){
@@ -43,13 +43,15 @@ class NsTask {
     Latch m_latch;
     DependencyType m_dependency_type;
   public:
+    const int priority;
     std::vector<bool> subtasks_done;
     std::mutex critical_section_mutex;
+    TaskType type;
   public:
-    const TaskBounds m_taskbounds;
-    const int m_num_of_subtasks;
+    const TaskBounds task_bounds;
+    const int num_of_subtasks;
     const std::function<void(const int start, const int end)> m_lambda;
-    NsTask(const std::function<void(const int start, const int end)> lambda, const TaskBounds task_bounds, const int num_of_subtasks=1, const std::vector<NsTask*> dependencies=std::vector<NsTask*>(), DependencyType depency_type=All);
+    NsTask(const std::function<void(const int start, const int end)> lambda, const TaskBounds task_bounds, const int num_of_subtasks=1, const std::vector<NsTask*> dependencies=std::vector<NsTask*>(), DependencyType dependency_type=All, const int priority=0, TaskType=Default);
     bool HasFinished();
     bool PrerequisitesDone(const int subtask_id);
     bool Decrement();
@@ -59,6 +61,8 @@ class NsTask {
     MakeCritical(std::function<void()> lambda);
     void
     Wait();
+    void
+    Reset();
 };
 
 typedef struct SubTask{

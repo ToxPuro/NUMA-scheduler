@@ -64,7 +64,7 @@ TsMinVector<T>::pop_first(std::function<bool(const T&)> condition)
 }
 class ThreadWorker{
   public:
-    TsMinVector<std::pair<size_t, SubTask>> m_taskqueue;
+    TsMinVector<std::pair<int, SubTask>> m_taskqueue;
     std::mutex m_mutex;
     std::thread m_thread;
     const int m_core_num;
@@ -83,15 +83,17 @@ class ThreadPool {
     std::condition_variable m_new_tasks_cv;
     //We use minvector instead of minheap since we want to iterate over the elements
     //Could change this in the future but at least std::queue can't be iterated over
-    TsMinVector<std::pair<size_t, SubTask>> m_global_taskqueue;
+    TsMinVector<std::pair<int, SubTask>> m_global_taskqueue;
     void
     ProcessTasks(ThreadWorker& worker);
     void
     StartProcessing();
+    void
+    PushSubtasks(NsTask* task);
 	public:
 		ThreadPool(const int num_of_threads);
     TaskHandle 
-    Push(const std::function<void(const int start, const int end)> lambda, const int num_of_subtasks, const size_t start, const size_t end, const size_t priority, std::vector<TaskHandle> dependency_handles=std::vector<TaskHandle>(), TaskType type=Default, DependencyType=All);
+    Push(const std::function<void(const int start, const int end)> lambda, const int num_of_subtasks, const size_t start, const size_t end, const int priority, std::vector<TaskHandle> dependency_handles=std::vector<TaskHandle>(), TaskType type=Default, DependencyType=All);
     bool
     Test(const TaskHandle& task_handle); 
     void
@@ -99,7 +101,7 @@ class ThreadPool {
     void
     WaitAll();
     void
-    ReLaunch(const TaskHandle& task_handle);
+    ReLaunchAll();
     void
     StopProcessing();
     void

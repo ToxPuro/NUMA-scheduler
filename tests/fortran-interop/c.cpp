@@ -21,6 +21,8 @@ void run(void (*calc_func)(const int a, const int b), void (*reduce_func)(const 
     pool.Push(reduce_func,3,0,10,1,{task_handle},Critical,Single);
   }
   pool.WaitAll();
+  pool.ReLaunchAll();
+  pool.WaitAll();
   pool.StopProcessing();
 }
 }
