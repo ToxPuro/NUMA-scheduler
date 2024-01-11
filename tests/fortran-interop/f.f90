@@ -37,7 +37,7 @@ CONTAINS
   END FUNCTION double_it
   subroutine reduce_intermediates(x,y) BIND(C)
     integer, value :: x,y
-    print*,"HI from reduce_intermediates"
+    print*,"x,y: ",x,y
     p_reduce_res = p_reduce_res + reduce_res
   endsubroutine reduce_intermediates
   subroutine hello_ints(start_c,end) BIND(C)

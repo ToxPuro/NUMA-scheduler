@@ -66,9 +66,8 @@ class NsTask {
 };
 
 typedef struct SubTask{
-  NsTask* task;
-  int id;
   std::function<void()> lambda;
+  std::function<bool()> ready_check;
   //Order does not matter
   bool operator<(const SubTask& other) const
   {
@@ -76,7 +75,7 @@ typedef struct SubTask{
   }
   bool
   IsReady(){
-    return task->PrerequisitesDone(id);
+    return ready_check();
   }
   void
   Execute()

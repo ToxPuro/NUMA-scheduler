@@ -4,7 +4,11 @@
 #include <algorithm>
 #include <scheduler.h>
 
-
+bool
+always_true()
+{
+  return true;
+}
 NsTask::NsTask(const std::function<void(const int start, const int end)> lambda, const TaskBounds task_bounds, const int num_of_subtasks, const std::vector<NsTask*> dependencies, DependencyType dependency_type, const int priority, TaskType type): 
   m_lambda(lambda), m_latch(num_of_subtasks),  task_bounds(task_bounds), num_of_subtasks(num_of_subtasks), m_dependencies(dependencies), m_dependency_type(dependency_type), subtasks_done(num_of_subtasks, false), priority(priority), type(type){}
 bool NsTask::HasFinished()
@@ -105,13 +109,14 @@ ThreadPool::PushSubtasks(NsTask* task)
       std::pair<int, SubTask>(
         task->priority,
         (SubTask){
-          task,
-          i,
           task->type == Async? 
                     task->MakeAsync(func, m_workers[i % m_workers.size()] -> m_core_num): 
           task->type == Critical?
                     task->MakeCritical(func):
-                    func
+                    func,
+          [=](){
+            return task->PrerequisitesDone(i);
+          }
         }
       )
     });
