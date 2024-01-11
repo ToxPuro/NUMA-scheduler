@@ -10,30 +10,32 @@ always_true()
   return true;
 }
 NsTask::NsTask(const std::function<void(const int start, const int end)> lambda, const TaskBounds task_bounds, const int num_of_subtasks, const std::vector<NsTask*> dependencies, DependencyType dependency_type, const int priority, TaskType type): 
-  m_lambda(lambda), m_latch(num_of_subtasks),  task_bounds(task_bounds), num_of_subtasks(num_of_subtasks), m_dependencies(dependencies), m_dependency_type(dependency_type), subtasks_done(num_of_subtasks, false), priority(priority), type(type),
-  generate_subtask_lambda(
-    [=](const int subtask_id)
-    {
-    const auto& [start, end]= task_bounds.GetInterval(subtask_id, num_of_subtasks);
-    return [=](){
-        m_lambda(start,end);
-        subtasks_done[subtask_id]=true;
-        Decrement();
-      };
+  m_latch(num_of_subtasks),  task_bounds(task_bounds), num_of_subtasks(num_of_subtasks), m_dependencies(dependencies), m_dependency_type(dependency_type), subtasks_done(num_of_subtasks, false), priority(priority), type(type)
+  {
+    for(int i=0;i<num_of_subtasks;i++){
+    const auto& [start, end]= task_bounds.GetInterval(i, num_of_subtasks);
+      m_subtasks_lambdas.push_back(
+        [=](){
+          lambda(start,end);
+          subtasks_done[i]=true;
+          Decrement();
+        }
+      );
     }
-  ){}
+  }
 NsTask::NsTask(const std::function<void()> lambda, const TaskBounds task_bounds, const int num_of_subtasks, const std::vector<NsTask*> dependencies, DependencyType dependency_type, const int priority, TaskType type): 
-  m_lambda([=](const int a, const int b){lambda();}), m_latch(num_of_subtasks),  task_bounds(task_bounds), num_of_subtasks(num_of_subtasks), m_dependencies(dependencies), m_dependency_type(dependency_type), subtasks_done(num_of_subtasks, false), priority(priority), type(type),
-  generate_subtask_lambda(
-    [=](const int subtask_id)
-    {
-    return [=](){
-        lambda();
-        subtasks_done[subtask_id]=true;
-        Decrement();
-      };
+  m_latch(num_of_subtasks),  task_bounds(task_bounds), num_of_subtasks(num_of_subtasks), m_dependencies(dependencies), m_dependency_type(dependency_type), subtasks_done(num_of_subtasks, false), priority(priority), type(type)
+  {
+    for(int i=0;i<num_of_subtasks;i++){
+      m_subtasks_lambdas.push_back(
+        [=](){
+          lambda();
+          subtasks_done[i]=true;
+          Decrement();
+        }
+      );
     }
-  ){}
+  }
 
 bool NsTask::HasFinished()
 {
@@ -124,7 +126,7 @@ ThreadPool::PushSubtasks(NsTask* task)
   for(int i=0;i<task->num_of_subtasks;i++)
   {
     const auto& [start, end]= task->task_bounds.GetInterval(i, task->num_of_subtasks);
-    auto func = task->generate_subtask_lambda(i);
+    auto func = task->m_subtasks_lambdas[i];
     m_workers[i % m_workers.size()]->m_taskqueue.push_elems({
       std::pair<int, SubTask>(
         task->priority,

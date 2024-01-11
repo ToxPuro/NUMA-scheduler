@@ -104,9 +104,6 @@ class ThreadPool {
       PushSubtasks(task);
       return (TaskHandle){static_cast<int>(m_tasks.size()-1)};
     }
-// }
-    // TaskHandle 
-    // Push(const std::function<void()> lambda, const int num_of_subtasks, const size_t start, const size_t end, const int priority, std::vector<TaskHandle> dependency_handles=std::vector<TaskHandle>(), TaskType type=Default, DependencyType=All);
     bool
     Test(const TaskHandle& task_handle); 
     void

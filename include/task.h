@@ -42,8 +42,9 @@ class NsTask {
     const std::vector<NsTask*> m_dependencies;
     Latch m_latch;
     DependencyType m_dependency_type;
-    const std::vector<std::function<void()>> m_subtasks_lambdas;
+    //Constant
   public:
+    std::vector<std::function<void()>> m_subtasks_lambdas;
     const int priority;
     std::vector<bool> subtasks_done;
     std::mutex critical_section_mutex;
@@ -51,8 +52,6 @@ class NsTask {
   public:
     const TaskBounds task_bounds;
     const int num_of_subtasks;
-    const std::function<void(const int start, const int end)> m_lambda;
-    const std::function<std::function<void()>(const int subtask_id)> generate_subtask_lambda;
     NsTask(const std::function<void(const int start, const int end)> lambda, const TaskBounds task_bounds, const int num_of_subtasks=1, const std::vector<NsTask*> dependencies=std::vector<NsTask*>(), DependencyType dependency_type=All, const int priority=0, TaskType=Default);
     NsTask(const std::function<void()> lambda, const TaskBounds task_bounds, const int num_of_subtasks=1, const std::vector<NsTask*> dependencies=std::vector<NsTask*>(), DependencyType dependency_type=All, const int priority=0, TaskType=Default);
     bool HasFinished();
