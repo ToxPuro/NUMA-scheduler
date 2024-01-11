@@ -10,7 +10,31 @@ always_true()
   return true;
 }
 NsTask::NsTask(const std::function<void(const int start, const int end)> lambda, const TaskBounds task_bounds, const int num_of_subtasks, const std::vector<NsTask*> dependencies, DependencyType dependency_type, const int priority, TaskType type): 
-  m_lambda(lambda), m_latch(num_of_subtasks),  task_bounds(task_bounds), num_of_subtasks(num_of_subtasks), m_dependencies(dependencies), m_dependency_type(dependency_type), subtasks_done(num_of_subtasks, false), priority(priority), type(type){}
+  m_lambda(lambda), m_latch(num_of_subtasks),  task_bounds(task_bounds), num_of_subtasks(num_of_subtasks), m_dependencies(dependencies), m_dependency_type(dependency_type), subtasks_done(num_of_subtasks, false), priority(priority), type(type),
+  generate_subtask_lambda(
+    [=](const int subtask_id)
+    {
+    const auto& [start, end]= task_bounds.GetInterval(subtask_id, num_of_subtasks);
+    return [=](){
+        m_lambda(start,end);
+        subtasks_done[subtask_id]=true;
+        Decrement();
+      };
+    }
+  ){}
+NsTask::NsTask(const std::function<void()> lambda, const TaskBounds task_bounds, const int num_of_subtasks, const std::vector<NsTask*> dependencies, DependencyType dependency_type, const int priority, TaskType type): 
+  m_lambda([=](const int a, const int b){lambda();}), m_latch(num_of_subtasks),  task_bounds(task_bounds), num_of_subtasks(num_of_subtasks), m_dependencies(dependencies), m_dependency_type(dependency_type), subtasks_done(num_of_subtasks, false), priority(priority), type(type),
+  generate_subtask_lambda(
+    [=](const int subtask_id)
+    {
+    return [=](){
+        lambda();
+        subtasks_done[subtask_id]=true;
+        Decrement();
+      };
+    }
+  ){}
+
 bool NsTask::HasFinished()
 {
   return m_latch.try_wait();
@@ -100,11 +124,7 @@ ThreadPool::PushSubtasks(NsTask* task)
   for(int i=0;i<task->num_of_subtasks;i++)
   {
     const auto& [start, end]= task->task_bounds.GetInterval(i, task->num_of_subtasks);
-    auto func = [=](){
-        task->m_lambda(start,end);
-        task->subtasks_done[i]=true;
-        task->Decrement();
-    };
+    auto func = task->generate_subtask_lambda(i);
     m_workers[i % m_workers.size()]->m_taskqueue.push_elems({
       std::pair<int, SubTask>(
         task->priority,
@@ -122,17 +142,6 @@ ThreadPool::PushSubtasks(NsTask* task)
     });
   }
   m_new_tasks_cv.notify_all();
-}
-TaskHandle
-ThreadPool::Push(const std::function<void(const int start, const int end)> lambda, const int num_of_subtasks, const size_t start, const size_t end, const int priority, std::vector<TaskHandle> dependency_handles, TaskType type, DependencyType dependency_type){
-  std::vector<NsTask*> dependencies;
-  for(TaskHandle handle : dependency_handles)
-    dependencies.emplace_back(m_tasks[handle.task_id]);
-  auto task_bounds = (TaskBounds){start,end};
-  auto task = new NsTask( lambda, task_bounds, num_of_subtasks, dependencies, dependency_type, priority, type);
-  m_tasks.push_back(task);
-  PushSubtasks(task);
-  return (TaskHandle){static_cast<int>(m_tasks.size()-1)};
 }
 bool
 ThreadPool::Test(const TaskHandle& task_handle)
