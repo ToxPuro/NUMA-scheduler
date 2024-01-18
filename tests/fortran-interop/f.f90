@@ -2,10 +2,10 @@ MODULE m
 
   USE, INTRINSIC :: ISO_C_BINDING
   IMPLICIT NONE
-  integer, allocatable, dimension(:) :: test_arr
   integer, target :: reduce_res
   integer, pointer :: p_reduce_res
   !$omp threadprivate(reduce_res)
+  integer, allocatable, target, dimension(:,:) :: test_arr
 TYPE, BIND(C) :: TaskHandle
 INTEGER(C_INT) :: task_id
 END TYPE TaskHandle
@@ -20,10 +20,9 @@ END TYPE TaskHandle
     END FUNCTION call_it
   END INTERFACE
   INTERFACE
-    SUBROUTINE run(calc_func, reduce_func, array, n) BIND(C)
+    SUBROUTINE run(calc_func, reduce_func, clean_func, array, n) BIND(C)
     use, INTRINSIC :: iso_c_binding
-    type(c_funptr), intent(in), value :: calc_func
-    type (c_funptr), intent(in), value :: reduce_func
+    type(c_funptr), intent(in), value :: calc_func, reduce_func, clean_func
     integer, value :: n
     integer, dimension(n) :: array
     END SUBROUTINE run
@@ -40,27 +39,35 @@ CONTAINS
   subroutine reduce_intermediates() BIND(C)
     p_reduce_res = p_reduce_res + reduce_res
   endsubroutine reduce_intermediates
-  subroutine hello_ints(start_c,end, array) BIND(C)
+  subroutine hello_ints(start,end, start_y, end_y, array) BIND(C)
     use ISO_C_BINDING, only : c_int
-    integer, dimension(15) :: array
-    integer, value :: start_c,end
-    integer :: start
-    start = start_c+1
+    integer, dimension(15,15) :: array
+    integer, value :: start,end,start_y, end_y
     !if(start == 1) then
     !  call sleep(10)
     !endif
-    print*,"range: ",start,"-",end
+    print*,"x range: ",start,"-",end
     print*,"arr: ",array
-    reduce_res = reduce_res + sum(test_arr(start:end))
+    print*,"y range:",start_y,"-",end_y
+    reduce_res = reduce_res + sum(array(start:end,start_y:end_y))
   end subroutine hello_ints
+  subroutine init_func() BIND(C)
+    integer :: i,j
+    allocate(test_arr(15,15))
+    do i=1,15
+      do j=1,15
+        test_arr(i,j) = i+(j-1)*15
+      enddo
+    enddo
+  endsubroutine init_func
+  subroutine clean_func() BIND(C)
+    deallocate(test_arr)
+  endsubroutine clean_func
 
-  ! Call C function.
   SUBROUTINE foobar ()
     use omp_lib
     type(TaskHandle) :: task_handle
     INTEGER(KIND=C_INT) :: i
-    allocate(test_arr(15))
-    test_arr=1
 
     ! Use it.
     DO i = 1_C_INT, 10_C_INT
@@ -69,11 +76,14 @@ CONTAINS
 
     END DO
     p_reduce_res => reduce_res
-    do i = 1,15
-      test_arr(i) = i
-    enddo
-    call run(c_funloc(hello_ints), c_funloc(reduce_intermediates), test_arr, 15)
+    call init_func()
+    call run(c_funloc(hello_ints), c_funloc(reduce_intermediates), c_funloc(clean_func), test_arr, 15)
     print*,"reduce res = ",reduce_res
+    print*,test_arr
+    print*,allocated(test_arr)
+    !deallocate(test_arr)
+    print*,test_arr
+    !print*,allocated(test_arr)
   END SUBROUTINE foobar
 
 END MODULE m

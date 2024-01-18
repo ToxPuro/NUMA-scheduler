@@ -4,18 +4,6 @@
 #include <latch.h>
 #include <thread>
 #include <mpi.h>
-typedef enum 
-{
-  Default,
-  Async,
-  Critical
-} TaskType;
-typedef enum
-{
-  All,
-  Single
-} DependencyType;
-
 typedef struct TaskBounds
 {
   const size_t start;
@@ -36,6 +24,32 @@ typedef struct TaskBounds
   }
 } TaskBounds;
 
+typedef struct SingleDimensionalFunc
+{
+  const std::function<void(const int a, const int b)> lambda;
+  const TaskBounds task_bounds;
+  const bool IsFortranFunc =true;
+} SingleDimensionalFunc;
+typedef struct TwoDimensionalFunc
+{
+  const std::function<void(const int a, const int b, const int c, const int d)> lambda;
+  const TaskBounds x_task_bounds;
+  const TaskBounds y_task_bounds;
+  const bool IsFortranFunc =true;
+} TwoDimensionalFunc;
+typedef enum 
+{
+  Default,
+  Async,
+  Critical
+} TaskType;
+typedef enum
+{
+  All,
+  Single
+} DependencyType;
+
+
 class NsTask {
   NsTask(const NsTask&) = delete;
   private:
@@ -43,9 +57,11 @@ class NsTask {
     Latch m_latch;
     DependencyType m_dependency_type;
     void
-    make_subtasks(const std::function<void(const int start, const int end)> lambda, const TaskBounds task_bounds);
+    make_subtasks(SingleDimensionalFunc lambda);
     void
-    make_subtasks(const std::function<void()> lambda, const TaskBounds task_bounds);
+    make_subtasks(TwoDimensionalFunc lambda);
+    void
+    make_subtasks(const std::function<void()> lambda);
     //Constant
   public:
     std::vector<std::function<void()>> m_subtasks_lambdas;
@@ -56,10 +72,10 @@ class NsTask {
   public:
     const int num_of_subtasks;
     template <typename F>
-    NsTask(const F lambda, const TaskBounds task_bounds, const int num_of_subtasks=1, const std::vector<NsTask*> dependencies=std::vector<NsTask*>(), DependencyType dependency_type=All, const int priority=0, TaskType=Default):
+    NsTask(const F lambda, const int num_of_subtasks=1, const std::vector<NsTask*> dependencies=std::vector<NsTask*>(), DependencyType dependency_type=All, const int priority=0, TaskType=Default):
       m_latch(num_of_subtasks), num_of_subtasks(num_of_subtasks), m_dependencies(dependencies), m_dependency_type(dependency_type), subtasks_done(num_of_subtasks, false), priority(priority), type(type)
     {
-      make_subtasks(lambda, task_bounds);
+      make_subtasks(lambda);
     }
     // NsTask(const std::function<void()> lambda, const TaskBounds task_bounds, const int num_of_subtasks=1, const std::vector<NsTask*> dependencies=std::vector<NsTask*>(), DependencyType dependency_type=All, const int priority=0, TaskType=Default);
     bool HasFinished();

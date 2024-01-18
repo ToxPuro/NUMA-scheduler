@@ -94,12 +94,11 @@ class ThreadPool {
 		ThreadPool(const int num_of_threads);
     template <typename F>
     TaskHandle 
-    Push(const F lambda, const int num_of_subtasks, const size_t start, const size_t end, const int priority, std::vector<TaskHandle> dependency_handles=std::vector<TaskHandle>(), TaskType type=Default, DependencyType dependency_type=All){
+    Push(const F lambda, const int num_of_subtasks, const int priority, std::vector<TaskHandle> dependency_handles=std::vector<TaskHandle>(), TaskType type=Default, DependencyType dependency_type=All){
       std::vector<NsTask*> dependencies;
       for(TaskHandle handle : dependency_handles)
         dependencies.emplace_back(m_tasks[handle.task_id]);
-      auto task_bounds = (TaskBounds){start,end};
-      auto task = new NsTask( lambda, task_bounds, num_of_subtasks, dependencies, dependency_type, priority, type);
+      auto task = new NsTask( lambda, num_of_subtasks, dependencies, dependency_type, priority, type);
       m_tasks.push_back(task);
       PushSubtasks(task);
       return (TaskHandle){static_cast<int>(m_tasks.size()-1)};

@@ -12,7 +12,7 @@ int main()
 	printf("processor count: %d\n",processor_count);
   for(int i=0;i<1;++i)
   {
-    TaskHandle task_handle = pool.Push(print_difference,3,0,10,1,{},Async);
+    TaskHandle task_handle = pool.Push((SingleDimensionalFunc){print_difference,{0,10}},3,1,{},Async);
   }
   pool.WaitAll();
   pool.StopProcessing();
