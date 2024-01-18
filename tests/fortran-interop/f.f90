@@ -2,8 +2,7 @@ MODULE m
 
   USE, INTRINSIC :: ISO_C_BINDING
   IMPLICIT NONE
-
-  integer, dimension(15) :: test_arr=1
+  integer, allocatable, dimension(:) :: test_arr
   integer, target :: reduce_res
   integer, pointer :: p_reduce_res
   !$omp threadprivate(reduce_res)
@@ -21,9 +20,12 @@ END TYPE TaskHandle
     END FUNCTION call_it
   END INTERFACE
   INTERFACE
-    SUBROUTINE run(calc_func, reduce_func) BIND(C)
+    SUBROUTINE run(calc_func, reduce_func, array, n) BIND(C)
     use, INTRINSIC :: iso_c_binding
-    type(c_funptr), intent(in), value :: calc_func, reduce_func
+    type(c_funptr), intent(in), value :: calc_func
+    type (c_funptr), intent(in), value :: reduce_func
+    integer, value :: n
+    integer, dimension(n) :: array
     END SUBROUTINE run
   END INTERFACE
 
@@ -35,9 +37,7 @@ CONTAINS
           type(TaskHandle), INTENT(IN), VALUE :: arg
     double_it%task_id = 2*arg%task_id
   END FUNCTION double_it
-  subroutine reduce_intermediates(x,y) BIND(C)
-    integer, value :: x,y
-    print*,"x,y: ",x,y
+  subroutine reduce_intermediates() BIND(C)
     p_reduce_res = p_reduce_res + reduce_res
   endsubroutine reduce_intermediates
   subroutine hello_ints(start_c,end) BIND(C)
@@ -48,6 +48,7 @@ CONTAINS
     if(start == 1) then
       call sleep(10)
     endif
+    print*,"range: ",start,"-",end
     reduce_res = reduce_res + sum(test_arr(start:end))
   end subroutine hello_ints
 
@@ -56,7 +57,8 @@ CONTAINS
     use omp_lib
     type(TaskHandle) :: task_handle
     INTEGER(KIND=C_INT) :: i
-
+    allocate(test_arr(15))
+    test_arr=1
 
     ! Use it.
     DO i = 1_C_INT, 10_C_INT
@@ -68,7 +70,7 @@ CONTAINS
     do i = 1,15
       test_arr(i) = i
     enddo
-    call run(c_funloc(hello_ints), c_funloc(reduce_intermediates))
+    call run(c_funloc(hello_ints), c_funloc(reduce_intermediates), test_arr, 15)
     print*,"reduce res = ",reduce_res
   END SUBROUTINE foobar
 

@@ -14,9 +14,13 @@ hi_func()
 {
   printf("Hi from hi func\n");
 }
-void run(void (*calc_func)(const int a, const int b), void (*reduce_func)(const int a, const int b))
+void run(void (*calc_func)(const int a, const int b), void (*reduce_func)(void), int* array)
 {
   printf("RUNNING \n");
+  printf("Arr values:\n");
+  for(int i=0;i<15;i++)
+    printf("%d,",array[i]);
+  printf("\n");
 	const auto processor_count = std::thread::hardware_concurrency();
   ThreadPool pool(processor_count-1);
 	printf("processor count: %d\n",processor_count);

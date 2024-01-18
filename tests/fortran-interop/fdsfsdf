@@ -1,0 +1,1 @@
+!$omp task affinity(f)

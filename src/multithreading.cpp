@@ -9,10 +9,10 @@ always_true()
 {
   return true;
 }
-NsTask::NsTask(const std::function<void(const int start, const int end)> lambda, const TaskBounds task_bounds, const int num_of_subtasks, const std::vector<NsTask*> dependencies, DependencyType dependency_type, const int priority, TaskType type): 
-  m_latch(num_of_subtasks), num_of_subtasks(num_of_subtasks), m_dependencies(dependencies), m_dependency_type(dependency_type), subtasks_done(num_of_subtasks, false), priority(priority), type(type)
-  {
-    for(int i=0;i<num_of_subtasks;i++){
+void
+NsTask::make_subtasks(const std::function<void(const int start, const int end)> lambda, const TaskBounds task_bounds)
+{
+  for(int i=0;i<num_of_subtasks;i++){
     const auto& [start, end]= task_bounds.GetInterval(i, num_of_subtasks);
       m_subtasks_lambdas.push_back(
         [=](){
@@ -22,11 +22,11 @@ NsTask::NsTask(const std::function<void(const int start, const int end)> lambda,
         }
       );
     }
-  }
-NsTask::NsTask(const std::function<void()> lambda, const TaskBounds task_bounds, const int num_of_subtasks, const std::vector<NsTask*> dependencies, DependencyType dependency_type, const int priority, TaskType type): 
-  m_latch(num_of_subtasks), num_of_subtasks(num_of_subtasks), m_dependencies(dependencies), m_dependency_type(dependency_type), subtasks_done(num_of_subtasks, false), priority(priority), type(type)
-  {
-    for(int i=0;i<num_of_subtasks;i++){
+}
+void
+NsTask::make_subtasks(const std::function<void()> lambda, const TaskBounds task_bounds)
+{
+  for(int i=0;i<num_of_subtasks;i++){
       m_subtasks_lambdas.push_back(
         [=](){
           lambda();
@@ -35,7 +35,19 @@ NsTask::NsTask(const std::function<void()> lambda, const TaskBounds task_bounds,
         }
       );
     }
-  }
+}
+// template <typename T>
+// NsTask::NsTask(const T lambda, const TaskBounds task_bounds, const int num_of_subtasks, const std::vector<NsTask*> dependencies, DependencyType dependency_type, const int priority, TaskType type): 
+//   m_latch(num_of_subtasks), num_of_subtasks(num_of_subtasks), m_dependencies(dependencies), m_dependency_type(dependency_type), subtasks_done(num_of_subtasks, false), priority(priority), type(type)
+//   {
+//     make_subtasks(lambda, task_bounds);
+    
+//   }
+// NsTask::NsTask(const std::function<void()> lambda, const TaskBounds task_bounds, const int num_of_subtasks, const std::vector<NsTask*> dependencies, DependencyType dependency_type, const int priority, TaskType type): 
+//   m_latch(num_of_subtasks), num_of_subtasks(num_of_subtasks), m_dependencies(dependencies), m_dependency_type(dependency_type), subtasks_done(num_of_subtasks, false), priority(priority), type(type)
+//   {
+//     make_subtasks(lambda, task_bounds);
+//   }
 
 bool NsTask::HasFinished()
 {
