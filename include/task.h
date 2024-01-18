@@ -37,6 +37,14 @@ typedef struct TwoDimensionalFunc
   const TaskBounds y_task_bounds;
   const bool IsFortranFunc =true;
 } TwoDimensionalFunc;
+typedef struct ThreeDimensionalFunc
+{
+  const std::function<void(const int x_start, const int x_end, const int y_start, const int y_end, const int z_start, const int z_end)> lambda;
+  const TaskBounds x_task_bounds;
+  const TaskBounds y_task_bounds;
+  const TaskBounds z_task_bounds;
+  const bool IsFortranFunc =true;
+} ThreeDimensionalFunc;
 typedef enum 
 {
   Default,

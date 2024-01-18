@@ -1,28 +1,31 @@
 #include <stdio.h>
 #include <memory>
 #include <scheduler.h>
+template <typename T>
 std::function<void(const int a, const int b)>
-convert(std::function<void(const int a, const int b, int* arr)> lambda, int* array)
+convert(std::function<void(const int a, const int b, int* arg)> lambda, T arg)
 {
   return [=](const int x, const int y)
   {
-    lambda(x,y,array);
+    lambda(x,y,arg);
   };
 }
+template <typename T>
 std::function<void(const int a, const int b, const int c, const int d)>
-convert(std::function<void(const int a, const int b, const int c, const int d, int* arr)> lambda, int* array)
+convert(std::function<void(const int a, const int b, const int c, const int d, int* arg)> lambda, T arg)
 {
   return [=](const int x, const int y, const int z, const int w)
   {
-    lambda(x,y,z,w,array);
+    lambda(x,y,z,w,arg);
   };
 }
-std::function<void()>
-convert(std::function<void(void* arr)> lambda, int* array)
+template <typename T>
+std::function<void(const int x_start, const int x_end, const int y_start, const int y_end, const int z_start, const int z_end)>
+convert(std::function<void(const int x_start, const int x_end, const int y_start, const int y_end, const int z_start, const int z_end, T arg)> lambda, T arg)
 {
-  return [=]()
+  return [=](const int x_start, const int x_end, const int y_start, const int y_end, const int z_start, const int z_end)
   {
-    lambda((void*) array);
+    lambda(x_start,x_end,y_start,y_end,z_start,z_end,arg);
   };
 }
 extern "C"{
