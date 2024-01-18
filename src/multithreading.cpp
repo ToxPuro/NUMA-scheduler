@@ -41,6 +41,23 @@ NsTask::make_subtasks(TwoDimensionalFunc function)
     }
 }
 void
+NsTask::make_subtasks(ThreeDimensionalFunc function)
+{
+  for(int i=0;i<num_of_subtasks;i++){
+    const auto& [x_start_, x_end]= function.x_task_bounds.GetInterval(i, num_of_subtasks);
+    const int x_start = function.IsFortranFunc ? x_start_+1 : x_start_;
+    const int y_start = function.IsFortranFunc ? function.y_task_bounds.start+1 : function.y_task_bounds.start;
+    const int z_start = function.IsFortranFunc ? function.z_task_bounds.start+1 : function.z_task_bounds.start;
+      m_subtasks_lambdas.push_back(
+        [=](){
+          function.lambda(x_start,x_end,y_start,function.y_task_bounds.end,z_start,function.z_task_bounds.end);
+          subtasks_done[i]=true;
+          Decrement();
+        }
+      );
+    }
+}
+void
 NsTask::make_subtasks(const std::function<void()> lambda)
 {
   for(int i=0;i<num_of_subtasks;i++){

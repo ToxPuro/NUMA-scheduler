@@ -69,6 +69,8 @@ class NsTask {
     void
     make_subtasks(TwoDimensionalFunc lambda);
     void
+    make_subtasks(ThreeDimensionalFunc lambda);
+    void
     make_subtasks(const std::function<void()> lambda);
     //Constant
   public:
