@@ -61,21 +61,21 @@ void run(void (*calc_func)(const int a, const int b, const int c, const int d, i
     printf("%d,",array[i]);
   printf("\n");
 	const auto processor_count = std::thread::hardware_concurrency();
-  ThreadPool pool(processor_count-1);
+  ThreadPool* pool = new ThreadPool(processor_count-1);
 	printf("processor count: %d\n",processor_count);
   for(int i=0;i<1;++i)
   {
-    TaskHandle task_handle = pool.Push((TwoDimensionalFunc){convert(calc_func, my_array), {0,15}, {0,15}},3,1,{},Default); 
-    TaskHandle reduce_handle = pool.Push(reduce_func,3,1,{task_handle},Critical,Single);
-    pool.Push(hi_func, 3,0);
-    pool.Push(clean_func,1,1,{reduce_handle},Critical, All);
+    TaskHandle task_handle = pool->Push((TwoDimensionalFunc){convert(calc_func, my_array), {0,15}, {0,15}},3,1,{},Default); 
+    TaskHandle reduce_handle = pool->Push(reduce_func,3,1,{task_handle},Critical,Single);
+    pool->Push(hi_func, 3,0);
+    pool->Push(clean_func,1,1,{reduce_handle},Critical, All);
   }
-  pool.WaitAll();
+  pool->WaitAll();
   // free(my_array);
   // pool.ReLaunchAll();
   // pool.WaitAll();
   // free(array);
   //deallocate_func(array);
-  pool.StopProcessing();
+  pool->StopProcessing();
 }
 }
