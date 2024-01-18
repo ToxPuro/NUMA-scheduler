@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <memory>
 #include <scheduler.h>
+static ThreadPool* pool;
 template <typename T>
 std::function<void(const int a, const int b)>
 convert(std::function<void(const int a, const int b, int* arg)> lambda, T arg)
@@ -50,6 +51,10 @@ hi_func()
 {
   printf("Hi from hi func\n");
 }
+void make_threadpool(const int num_threads)
+{
+  pool = new ThreadPool(num_threads);
+}
 void run(void (*calc_func)(const int a, const int b, const int c, const int d, int* arr), void (*reduce_func)(void), void(*clean_func)(void), int* array)
 {
   int* my_array = array;
@@ -61,7 +66,6 @@ void run(void (*calc_func)(const int a, const int b, const int c, const int d, i
     printf("%d,",array[i]);
   printf("\n");
 	const auto processor_count = std::thread::hardware_concurrency();
-  ThreadPool* pool = new ThreadPool(processor_count-1);
 	printf("processor count: %d\n",processor_count);
   for(int i=0;i<1;++i)
   {
