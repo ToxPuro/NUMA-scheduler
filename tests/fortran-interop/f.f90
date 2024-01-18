@@ -24,6 +24,14 @@ END TYPE TaskHandle
         integer, value :: num_threads
       endsubroutine make_threadpool
   end interface
+  interface
+      subroutine wait_all_thread_pool() BIND(C)
+      endsubroutine wait_all_thread_pool
+  end interface
+  interface
+      subroutine free_thread_pool() BIND(C)
+      endsubroutine free_thread_pool 
+  end interface
   INTERFACE
     SUBROUTINE run(calc_func, reduce_func, clean_func, array, n) BIND(C)
     use, INTRINSIC :: iso_c_binding
@@ -84,6 +92,7 @@ CONTAINS
     call init_func()
     call make_threadpool(3)
     call run(c_funloc(hello_ints), c_funloc(reduce_intermediates), c_funloc(clean_func), test_arr, 15)
+    call wait_all_thread_pool()
     print*,"reduce res = ",reduce_res
     print*,test_arr
     print*,allocated(test_arr)

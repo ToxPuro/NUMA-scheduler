@@ -55,6 +55,17 @@ void make_threadpool(const int num_threads)
 {
   pool = new ThreadPool(num_threads);
 }
+void
+wait_all_thread_pool()
+{
+  pool->WaitAll();
+}
+void
+free_thread_pool()
+{
+  pool->StopProcessing();
+  free(pool);
+}
 void run(void (*calc_func)(const int a, const int b, const int c, const int d, int* arr), void (*reduce_func)(void), void(*clean_func)(void), int* array)
 {
   int* my_array = array;
@@ -74,12 +85,10 @@ void run(void (*calc_func)(const int a, const int b, const int c, const int d, i
     pool->Push(hi_func, 3,0);
     pool->Push(clean_func,1,1,{reduce_handle},Critical, All);
   }
-  pool->WaitAll();
   // free(my_array);
   // pool.ReLaunchAll();
   // pool.WaitAll();
   // free(array);
   //deallocate_func(array);
-  pool->StopProcessing();
 }
 }
