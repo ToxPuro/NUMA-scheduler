@@ -14,7 +14,15 @@ hi_func()
 {
   printf("Hi from hi func\n");
 }
-void run(void (*calc_func)(const int a, const int b), void (*reduce_func)(void), int* array)
+std::function<void(const int a, const int b)>
+convert(std::function<void(const int a, const int b, int* arr)> lambda, int* array)
+{
+  return [=](const int x, const int y)
+  {
+    lambda(x,y,array);
+  };
+}
+void run(void (*calc_func)(const int a, const int b, int* arr), void (*reduce_func)(void), int* array)
 {
   printf("RUNNING \n");
   printf("Arr values:\n");
@@ -26,7 +34,7 @@ void run(void (*calc_func)(const int a, const int b), void (*reduce_func)(void),
 	printf("processor count: %d\n",processor_count);
   for(int i=0;i<1;++i)
   {
-    TaskHandle task_handle = pool.Push(calc_func,3,0,15,1,{},Default); 
+    TaskHandle task_handle = pool.Push(convert(calc_func, array),3,0,15,1,{},Default); 
     pool.Push(reduce_func,3,0,10,1,{task_handle},Critical,Single);
     pool.Push(hi_func, 3, 0,1,0);
   }

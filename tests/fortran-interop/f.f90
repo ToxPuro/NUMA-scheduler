@@ -40,15 +40,17 @@ CONTAINS
   subroutine reduce_intermediates() BIND(C)
     p_reduce_res = p_reduce_res + reduce_res
   endsubroutine reduce_intermediates
-  subroutine hello_ints(start_c,end) BIND(C)
+  subroutine hello_ints(start_c,end, array) BIND(C)
     use ISO_C_BINDING, only : c_int
+    integer, dimension(15) :: array
     integer, value :: start_c,end
     integer :: start
     start = start_c+1
-    if(start == 1) then
-      call sleep(10)
-    endif
+    !if(start == 1) then
+    !  call sleep(10)
+    !endif
     print*,"range: ",start,"-",end
+    print*,"arr: ",array
     reduce_res = reduce_res + sum(test_arr(start:end))
   end subroutine hello_ints
 

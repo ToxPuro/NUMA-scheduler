@@ -55,8 +55,8 @@ class NsTask {
     TaskType type;
   public:
     const int num_of_subtasks;
-    template <typename T>
-    NsTask(const T lambda, const TaskBounds task_bounds, const int num_of_subtasks=1, const std::vector<NsTask*> dependencies=std::vector<NsTask*>(), DependencyType dependency_type=All, const int priority=0, TaskType=Default):
+    template <typename F>
+    NsTask(const F lambda, const TaskBounds task_bounds, const int num_of_subtasks=1, const std::vector<NsTask*> dependencies=std::vector<NsTask*>(), DependencyType dependency_type=All, const int priority=0, TaskType=Default):
       m_latch(num_of_subtasks), num_of_subtasks(num_of_subtasks), m_dependencies(dependencies), m_dependency_type(dependency_type), subtasks_done(num_of_subtasks, false), priority(priority), type(type)
     {
       make_subtasks(lambda, task_bounds);
