@@ -28,6 +28,15 @@ convert(std::function<void(const int x_start, const int x_end, const int y_start
     lambda(x_start,x_end,y_start,y_end,z_start,z_end,arg);
   };
 }
+template <typename T>
+std::function<void(void)>
+convert(std::function<void(T x, T y)> lambda, T x, T y)
+{
+  return[=]()
+  {
+    lambda(x,y);
+  };
+}
 extern "C"{
 
 TaskHandle
