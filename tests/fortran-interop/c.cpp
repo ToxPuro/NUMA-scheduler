@@ -114,13 +114,17 @@ push_2d_3d_func_with_arrays_real(void (*func)(NsReal* first, const int first_x, 
   std::function<void()> lambda = convert(func, first, first_x, first_y, first_z, second, second_x, second_y, second_z);
   return push_func(lambda, prerequisite, num_of_subtasks, task_type, priority, dependency_int);
 }
-// TaskHandle
-// push_yx_fourier(const int y_range, const int nx_range, NsReal* p_re, NsReal* p_im, const int p_x, const int p_y, const int p_z, const bool normalize, const bool inverse)
-// {
-
-// }
-//az and wsavez are implicit
-// call fourier_transform_1d_yx(pny, nx, az, p_re, p_im, nzgrid, wsavez, normalize=.true., nzgrid)
+TaskHandle
+push_yx_fourier(void (*transform)(const int y_start, const int y_end, const int x_start, const int x_end, NsReal* p_re, NsReal* p_im, const bool normalize, const bool inverse), TaskHandle prerequisite, const int num_of_subtasks, const int task_type, const int priority, const int dependency_int, const int y_range, const int x_range, NsReal* p_re, NsReal* p_im, const int p_x, const int p_y, const int p_z, const bool normalize, const bool inverse)
+{
+  std::function<void(const int y_start, const int y_end, const int x_start, const int x_end)> lambda
+    = [=](const int y_start, const int y_end, const int x_start, const int x_end)
+          {
+            transform(y_start, y_end, x_start, x_end, p_re, p_im, normalize, inverse);
+          };
+  TwoDimensionalFunc res_func = {lambda, {0, static_cast<size_t>(y_range)}, {0, static_cast<size_t>(x_range)}};
+  return push_func(res_func, prerequisite, num_of_subtasks, task_type, priority, dependency_int);
+}
 void run(void (*calc_func)(const int a, const int b, const int c, const int d, int* arr), void (*reduce_func)(void), void(*clean_func)(void), int* array)
 {
   int* my_array = array;
