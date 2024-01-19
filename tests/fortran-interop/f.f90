@@ -9,6 +9,9 @@ MODULE m
 TYPE, BIND(C) :: TaskHandle
 INTEGER(C_INT) :: task_id
 END TYPE TaskHandle
+  type(TaskHandle) :: empty_handle = TaskHandle(task_id=-1)
+  integer, parameter :: default_task_type=1, async_task_type=2, critical_task_type=3
+  integer, parameter :: depend_on_all=1, depend_on_single=2 
 
   ! Define interface of C function.
   INTERFACE
@@ -31,6 +34,39 @@ END TYPE TaskHandle
   interface
       subroutine free_thread_pool() BIND(C)
       endsubroutine free_thread_pool 
+  end interface
+  interface
+      type(TaskHandle) function &
+      push_void_func(func, prerequisite, num_of_subtasks, task_type, priority, dependency_int) BIND(C)
+        use, INTRINSIC :: iso_c_binding
+        import TaskHandle
+        type(c_funptr), value :: func
+        type(TaskHandle), value :: prerequisite
+        integer, value :: num_of_subtasks
+        integer, value :: task_type
+        integer, value :: priority
+        integer, value :: dependency_int
+      end function
+  end interface
+  interface
+    subroutine hi_from_c() BIND(C)
+    endsubroutine
+  end interface
+  interface
+      type(TaskHandle) function &
+      push_1d_func_with_arr(func, prerequisite, num_of_subtasks, task_type, priority, dependency_int,start, end,array, n)
+        use, INTRINSIC :: iso_c_binding
+        import TaskHandle
+        type(c_funptr), value :: func
+        type(TaskHandle), value :: prerequisite
+        integer, value :: num_of_subtasks
+        integer, value :: task_type
+        integer, value :: priority
+        integer, value :: dependency_int
+        integer, value :: start,end 
+        integer, value :: n
+        integer, dimension(n) :: array
+      end function
   end interface
   INTERFACE
     SUBROUTINE run(calc_func, reduce_func, clean_func, array, n) BIND(C)
@@ -76,6 +112,9 @@ CONTAINS
   subroutine clean_func() BIND(C)
     deallocate(test_arr)
   endsubroutine clean_func
+  subroutine hello_func() BIND(C)
+    print*,"Hi from Fortran"
+  endsubroutine
 
   SUBROUTINE foobar ()
     use omp_lib
@@ -91,14 +130,15 @@ CONTAINS
     p_reduce_res => reduce_res
     call init_func()
     call make_threadpool(3)
-    call run(c_funloc(hello_ints), c_funloc(reduce_intermediates), c_funloc(clean_func), test_arr, 15)
+    !call run(c_funloc(hello_ints), c_funloc(reduce_intermediates), c_funloc(clean_func), test_arr, 15)
+    task_handle = push_void_func(c_funloc(hello_func), empty_handle, 3, default_task_type, 1, depend_on_all)
+    !call hi_from_c()
     call wait_all_thread_pool()
     print*,"reduce res = ",reduce_res
-    print*,test_arr
     print*,allocated(test_arr)
     !deallocate(test_arr)
-    print*,test_arr
-    !print*,allocated(test_arr)
+    !print*,test_arr
+    call free_thread_pool()
   END SUBROUTINE foobar
 
 END MODULE m

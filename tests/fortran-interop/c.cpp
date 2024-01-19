@@ -1,10 +1,10 @@
 #include <stdio.h>
 #include <memory>
 #include <scheduler.h>
+static TaskHandle EmptyTaskHandle{-1};
 static ThreadPool* pool;
-template <typename T>
 std::function<void(const int a, const int b)>
-convert(std::function<void(const int a, const int b, int* arg)> lambda, T arg)
+convert(std::function<void(const int a, const int b, int* arg)> lambda, int* arg)
 {
   return [=](const int x, const int y)
   {
@@ -65,6 +65,30 @@ free_thread_pool()
 {
   pool->StopProcessing();
   free(pool);
+}
+void
+hi_from_c()
+{
+  printf("Hi from c\n");
+}
+TaskHandle
+push_void_func(void (*func)(void), TaskHandle prerequisite, const int num_of_subtasks, const int task_type, const int priority, const int dependency_int)
+{
+  TaskType type = static_cast<TaskType>(task_type);
+  DependencyType dependency_type = static_cast<DependencyType>(dependency_int);
+  if(prerequisite == EmptyTaskHandle)
+    return pool->Push(func,num_of_subtasks,priority, {}, type);
+  return pool->Push(func, num_of_subtasks, priority, {prerequisite}, type,dependency_type);
+}
+TaskHandle
+push_1d_func_with_arr_int(void (*func)(const int start, const int end, int* arr), TaskHandle prerequisite, const int num_of_subtasks, const int task_type, const int priority, const int dependency_int, const int start, const int end, int* array, const int n)
+{
+  TaskType type = static_cast<TaskType>(task_type);
+  DependencyType dependency_type = static_cast<DependencyType>(dependency_int);
+  SingleDimensionalFunc lambda = {convert(func, array), {static_cast<size_t>(start), static_cast<size_t>(end)}};
+  if(prerequisite == EmptyTaskHandle)
+    return pool->Push(lambda,num_of_subtasks,priority, {}, type);
+  return pool->Push(lambda, num_of_subtasks, priority, {prerequisite}, type,dependency_type);
 }
 void run(void (*calc_func)(const int a, const int b, const int c, const int d, int* arr), void (*reduce_func)(void), void(*clean_func)(void), int* array)
 {

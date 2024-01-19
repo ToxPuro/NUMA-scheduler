@@ -6,10 +6,14 @@
 #include <task.h>
 #include <thread>
 #include <condition_variable>
-typedef struct 
+struct TaskHandle
 {
   const int task_id;
-} TaskHandle;
+  bool operator==(const TaskHandle& other)
+  {
+    return task_id == other.task_id;
+  }
+};
 
 
 template <class T>
