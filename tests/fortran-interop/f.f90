@@ -10,8 +10,8 @@ TYPE, BIND(C) :: TaskHandle
 INTEGER(C_INT) :: task_id
 END TYPE TaskHandle
   type(TaskHandle) :: empty_handle = TaskHandle(task_id=-1)
-  integer, parameter :: default_task_type=1, async_task_type=2, critical_task_type=3
-  integer, parameter :: depend_on_all=1, depend_on_single=2 
+  integer, parameter :: default_task_type=0, async_task_type=1, critical_task_type=2
+  integer, parameter :: depend_on_all=0, depend_on_single=1
 
   ! Define interface of C function.
   INTERFACE
@@ -53,8 +53,8 @@ END TYPE TaskHandle
     endsubroutine
   end interface
   interface
-      type(TaskHandle) function &
-      push_1d_func_with_arr(func, prerequisite, num_of_subtasks, task_type, priority, dependency_int,start, end,array, n)
+      type(TaskHandle) function push_1d_func_with_arr_int &
+      (func, prerequisite, num_of_subtasks, task_type, priority, dependency_int,start, end,array, n) BIND(C)
         use, INTRINSIC :: iso_c_binding
         import TaskHandle
         type(c_funptr), value :: func
@@ -66,6 +66,23 @@ END TYPE TaskHandle
         integer, value :: start,end 
         integer, value :: n
         integer, dimension(n) :: array
+      end function
+  end interface
+  interface
+      type(TaskHandle) function push_2d_func_with_arr_int &
+      (func, prerequisite, num_of_subtasks, task_type, priority, dependency_int,&
+      x_start,x_end,y_start,y_end,array,x_length, y_length) BIND(C)
+        use, INTRINSIC :: iso_c_binding
+        import TaskHandle
+        type(c_funptr), value :: func
+        type(TaskHandle), value :: prerequisite
+        integer, value :: num_of_subtasks
+        integer, value :: task_type
+        integer, value :: priority
+        integer, value :: dependency_int
+        integer, value :: x_start,x_end, y_start, y_end
+        integer, value :: x_length, y_length 
+        integer, dimension(x_length, y_length) :: array
       end function
   end interface
   INTERFACE
@@ -96,7 +113,6 @@ CONTAINS
     !  call sleep(10)
     !endif
     print*,"x range: ",start,"-",end
-    print*,"arr: ",array
     print*,"y range:",start_y,"-",end_y
     reduce_res = reduce_res + sum(array(start:end,start_y:end_y))
   end subroutine hello_ints
@@ -131,8 +147,11 @@ CONTAINS
     call init_func()
     call make_threadpool(3)
     !call run(c_funloc(hello_ints), c_funloc(reduce_intermediates), c_funloc(clean_func), test_arr, 15)
-    task_handle = push_void_func(c_funloc(hello_func), empty_handle, 3, default_task_type, 1, depend_on_all)
-    !call hi_from_c()
+    !task_handle = push_void_func(c_funloc(hello_func), empty_handle, 3, default_task_type, 1, depend_on_all)
+    task_handle = push_2d_func_with_arr_int(c_funloc(hello_ints), empty_handle, 3, &
+                  default_task_type, 1, depend_on_all, 0, 15, 0, 15, test_arr, 15, 15)
+    task_handle = push_void_func(c_funloc(reduce_intermediates), task_handle, 3, critical_task_type, 1, depend_on_single)
+    task_handle = push_void_func(c_funloc(clean_func), task_handle, 1, critical_task_type, 1, depend_on_all)
     call wait_all_thread_pool()
     print*,"reduce res = ",reduce_res
     print*,allocated(test_arr)

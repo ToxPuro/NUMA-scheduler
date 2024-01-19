@@ -90,6 +90,16 @@ push_1d_func_with_arr_int(void (*func)(const int start, const int end, int* arr)
     return pool->Push(lambda,num_of_subtasks,priority, {}, type);
   return pool->Push(lambda, num_of_subtasks, priority, {prerequisite}, type,dependency_type);
 }
+TaskHandle
+push_2d_func_with_arr_int(void (*func)(const int x_start, const int x_end, const int y_start, const int y_end, int* arr), TaskHandle prerequisite, const int num_of_subtasks, const int task_type, const int priority, const int dependency_int, const int x_start, const int x_end, const int y_start, const int y_end, int* array, const int x_length, const int y_length)
+{
+  TaskType type = static_cast<TaskType>(task_type);
+  DependencyType dependency_type = static_cast<DependencyType>(dependency_int);
+  TwoDimensionalFunc lambda = {convert(func, array), {static_cast<size_t>(x_start), static_cast<size_t>(x_end)}, {static_cast<size_t>(x_start), static_cast<size_t>(x_end)}};
+  if(prerequisite == EmptyTaskHandle)
+    return pool->Push(lambda,num_of_subtasks,priority, {}, type);
+  return pool->Push(lambda, num_of_subtasks, priority, {prerequisite}, type,dependency_type);
+}
 void run(void (*calc_func)(const int a, const int b, const int c, const int d, int* arr), void (*reduce_func)(void), void(*clean_func)(void), int* array)
 {
   int* my_array = array;
@@ -106,7 +116,7 @@ void run(void (*calc_func)(const int a, const int b, const int c, const int d, i
   {
     TaskHandle task_handle = pool->Push((TwoDimensionalFunc){convert(calc_func, my_array), {0,15}, {0,15}},3,1,{},Default); 
     TaskHandle reduce_handle = pool->Push(reduce_func,3,1,{task_handle},Critical,Single);
-    pool->Push(hi_func, 3,0);
+    TaskHandle hi_handle = pool->Push(hi_func, 3,0);
     pool->Push(clean_func,1,1,{reduce_handle},Critical, All);
   }
   // free(my_array);
