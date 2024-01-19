@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include <memory>
 #include <scheduler.h>
+#include <complex.h>
 static TaskHandle EmptyTaskHandle{-1};
 static ThreadPool* pool;
+typedef float NsReal;
 std::function<void(const int a, const int b)>
 convert(std::function<void(const int a, const int b, int* arg)> lambda, int* arg)
 {
@@ -37,6 +39,24 @@ convert(std::function<void(T x, T y)> lambda, T x, T y)
   {
     lambda(x,y);
   };
+}
+std::function<void()>
+convert(std::function<void(NsReal* first, const int first_x, const int first_y, const int first_z, NsReal* second, const int second_x, const int second_y, const int second_z)> lambda, NsReal* first, const int first_x, const int first_y, const int first_z, NsReal* second, const int second_x, const int second_y, const int second_z)
+{
+  return[=]()
+  {
+    lambda(first, first_x, first_y, first_z, second, second_x, second_y, second_z);
+  };
+}
+template <typename F>
+TaskHandle
+push_func(F func, TaskHandle prerequisite, const int num_of_subtasks, const int task_type, const int priority, const int dependency_int)
+{
+  TaskType type = static_cast<TaskType>(task_type);
+  DependencyType dependency_type = static_cast<DependencyType>(dependency_int);
+  if(prerequisite == EmptyTaskHandle)
+    return pool->Push(func,num_of_subtasks,priority, {}, type);
+  return pool->Push(func, num_of_subtasks, priority, {prerequisite}, type,dependency_type);
 }
 extern "C"{
 
@@ -74,32 +94,33 @@ hi_from_c()
 TaskHandle
 push_void_func(void (*func)(void), TaskHandle prerequisite, const int num_of_subtasks, const int task_type, const int priority, const int dependency_int)
 {
-  TaskType type = static_cast<TaskType>(task_type);
-  DependencyType dependency_type = static_cast<DependencyType>(dependency_int);
-  if(prerequisite == EmptyTaskHandle)
-    return pool->Push(func,num_of_subtasks,priority, {}, type);
-  return pool->Push(func, num_of_subtasks, priority, {prerequisite}, type,dependency_type);
+  return push_func(func, prerequisite, num_of_subtasks, task_type, priority, dependency_int);
 }
 TaskHandle
 push_1d_func_with_arr_int(void (*func)(const int start, const int end, int* arr), TaskHandle prerequisite, const int num_of_subtasks, const int task_type, const int priority, const int dependency_int, const int start, const int end, int* array, const int n)
 {
-  TaskType type = static_cast<TaskType>(task_type);
-  DependencyType dependency_type = static_cast<DependencyType>(dependency_int);
   SingleDimensionalFunc lambda = {convert(func, array), {static_cast<size_t>(start), static_cast<size_t>(end)}};
-  if(prerequisite == EmptyTaskHandle)
-    return pool->Push(lambda,num_of_subtasks,priority, {}, type);
-  return pool->Push(lambda, num_of_subtasks, priority, {prerequisite}, type,dependency_type);
+  return push_func(lambda, prerequisite, num_of_subtasks, task_type, priority, dependency_int);
 }
 TaskHandle
 push_2d_func_with_arr_int(void (*func)(const int x_start, const int x_end, const int y_start, const int y_end, int* arr), TaskHandle prerequisite, const int num_of_subtasks, const int task_type, const int priority, const int dependency_int, const int x_start, const int x_end, const int y_start, const int y_end, int* array, const int x_length, const int y_length)
 {
-  TaskType type = static_cast<TaskType>(task_type);
-  DependencyType dependency_type = static_cast<DependencyType>(dependency_int);
   TwoDimensionalFunc lambda = {convert(func, array), {static_cast<size_t>(x_start), static_cast<size_t>(x_end)}, {static_cast<size_t>(x_start), static_cast<size_t>(x_end)}};
-  if(prerequisite == EmptyTaskHandle)
-    return pool->Push(lambda,num_of_subtasks,priority, {}, type);
-  return pool->Push(lambda, num_of_subtasks, priority, {prerequisite}, type,dependency_type);
+  return push_func(lambda, prerequisite, num_of_subtasks, task_type, priority, dependency_int);
 }
+TaskHandle
+push_2d_3d_func_with_arrays_real(void (*func)(NsReal* first, const int first_x, const int first_y, const int first_z, NsReal* second, const int second_x, const int second_y, const int second_z), TaskHandle prerequisite, const int num_of_subtasks, const int task_type, const int priority, const int dependency_int, NsReal* first, const int first_x, const int first_y, const int first_z, NsReal* second, const int second_x, const int second_y, const int second_z)
+{
+  std::function<void()> lambda = convert(func, first, first_x, first_y, first_z, second, second_x, second_y, second_z);
+  return push_func(lambda, prerequisite, num_of_subtasks, task_type, priority, dependency_int);
+}
+// TaskHandle
+// push_yx_fourier(const int y_range, const int nx_range, NsReal* p_re, NsReal* p_im, const int p_x, const int p_y, const int p_z, const bool normalize, const bool inverse)
+// {
+
+// }
+//az and wsavez are implicit
+// call fourier_transform_1d_yx(pny, nx, az, p_re, p_im, nzgrid, wsavez, normalize=.true., nzgrid)
 void run(void (*calc_func)(const int a, const int b, const int c, const int d, int* arr), void (*reduce_func)(void), void(*clean_func)(void), int* array)
 {
   int* my_array = array;

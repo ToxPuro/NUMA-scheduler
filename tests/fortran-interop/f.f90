@@ -136,6 +136,7 @@ CONTAINS
     use omp_lib
     type(TaskHandle) :: task_handle
     INTEGER(KIND=C_INT) :: i
+    complex :: x_cmplx=cmplx(1.41,1.41)
 
     ! Use it.
     DO i = 1_C_INT, 10_C_INT
@@ -158,6 +159,7 @@ CONTAINS
     !deallocate(test_arr)
     !print*,test_arr
     call free_thread_pool()
+    print*,"complex value: ",x_cmplx
   END SUBROUTINE foobar
 
 END MODULE m
