@@ -5,6 +5,14 @@
 static TaskHandle EmptyTaskHandle{-1};
 static ThreadPool* pool;
 typedef float NsReal;
+const int nx_start = 0;
+const int ny_start = 0;
+const int nz_start = 0;
+
+const int nx_end = 1;
+const int ny_end = 1;
+const int nz_end = 1;
+//TODO: replace with correct dims
 std::function<void(const int a, const int b)>
 convert(std::function<void(const int a, const int b, int* arg)> lambda, int* arg)
 {
@@ -125,7 +133,46 @@ push_yx_fourier(void (*transform)(const int y_start, const int y_end, const int 
   TwoDimensionalFunc res_func = {lambda, {0, static_cast<size_t>(y_range)}, {0, static_cast<size_t>(x_range)}};
   return push_func(res_func, prerequisite, num_of_subtasks, task_type, priority, dependency_int);
 }
-void run(void (*calc_func)(const int a, const int b, const int c, const int d, int* arr), void (*reduce_func)(void), void(*clean_func)(void), int* array)
+TaskHandle
+push_3d_power_map_func(void (*map_func)(const int x_start, const int x_end, const int y_start, const int y_end, const int z_start, const int z_end, NsReal* dst, NsReal* src, const int src_index, const int vector_index), TaskHandle prerequisite, const int num_of_subtasks, const int task_type, const int priority, const int dependency_int, NsReal* dst, NsReal* src, const int src_index, const int vector_index) 
+{
+  std::function<void(const int x_start, const int x_end, const int y_start, const int y_end, const int z_start, const int z_end)> lambda
+    = [=](const int x_start, const int x_end, const int y_start, const int y_end, const int z_start, const int z_end)
+    {
+      map_func(x_start, x_end, y_start, y_end, z_start, z_end, dst, src, src_index, vector_index);
+    };
+  ThreeDimensionalFunc res_func = {lambda, {nx_start,nx_end}, {ny_start,ny_end}, {nz_start,nz_end}};
+  return push_func(res_func, prerequisite, num_of_subtasks, task_type, priority, dependency_int);
+}
+TaskHandle
+push_powerscl_calc_data(void (*func)(NsReal* a_re, NsReal* a_im, NsReal* f, const int sp, const int iapn_index, const bool lsqrt), TaskHandle prerequisite, const int num_of_subtasks, const int task_type, const int priority, const int dependency_int, NsReal* a_re, NsReal* a_im, NsReal* f, int sp, int iapn_index, bool lsqrt)
+{
+  std::function<void()> res_func = [=](){
+    func(a_re,a_im,f,sp,iapn_index,lsqrt);
+  };
+  return push_func(res_func, prerequisite, num_of_subtasks, task_type, priority, dependency_int);
+
+}
+TaskHandle
+push_powerscl_calc_spectra(void (*func)(NsReal* spectrum, NsReal* hor_spectrum, NsReal* ver_spectrum, NsReal* a_re, NsReal* a_im, int sp),TaskHandle prerequisite, const int num_of_subtasks, const int task_type, const int priority, const int dependency_int, NsReal* spectrum, NsReal* hor_spectrum, NsReal* ver_spectrum, NsReal* a_re, NsReal* a_im, int sp)
+{
+  std::function<void()> res_func = [=]()
+  {
+    func(spectrum,hor_spectrum,ver_spectrum,a_re,a_im,sp);
+  };
+  return push_func(res_func, prerequisite, num_of_subtasks, task_type, priority, dependency_int);
+}
+TaskHandle
+push_powerscl_output_results(void (*func)(NsReal* spectrum, NsReal* hor_spectrum, NsReal* ver_spectrum, NsReal* a_re, NsReal* a_im, const int sp),TaskHandle prerequisite, const int num_of_subtasks, const int task_type, const int priority, const int dependency_int, NsReal* spectrum, NsReal* hor_spectrum, NsReal* ver_spectrum, NsReal* a_re, NsReal* a_im, const int sp)
+{
+  std::function<void()> res_func = [=]()
+  {
+    func(spectrum,hor_spectrum,ver_spectrum,a_re,a_im,sp);
+  };
+  return push_func(res_func, prerequisite, num_of_subtasks, task_type, priority, dependency_int);
+}
+void 
+run(void (*calc_func)(const int a, const int b, const int c, const int d, int* arr), void (*reduce_func)(void), void(*clean_func)(void), int* array)
 {
   int* my_array = array;
   for(int i=0;i<15;i++)
