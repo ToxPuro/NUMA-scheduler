@@ -107,14 +107,26 @@ CONTAINS
   endsubroutine reduce_intermediates
   subroutine hello_ints(start,end, start_y, end_y, array) BIND(C)
     use ISO_C_BINDING, only : c_int
+    use omp_lib
     integer, dimension(15,15) :: array
     integer, value :: start,end,start_y, end_y
+    integer :: x_index, y_index
     !if(start == 1) then
     !  call sleep(10)
     !endif
-    print*,"x range: ",start,"-",end
-    print*,"y range:",start_y,"-",end_y
-    reduce_res = reduce_res + sum(array(start:end,start_y:end_y))
+    !$omp parallel num_threads(3)
+    print*,"thread num= ",omp_get_thread_num()
+    !$omp do
+    do x_index=start,end
+      do y_index = start_y, end_y
+        reduce_res = reduce_res + array(x_index,y_index)
+      enddo
+    enddo
+    !$omp end do
+    !$omp critical
+    p_reduce_res = p_reduce_res + reduce_res
+    !$omp end critical
+    !$omp end parallel
   end subroutine hello_ints
   subroutine init_func() BIND(C)
     integer :: i,j
@@ -136,6 +148,7 @@ CONTAINS
     use omp_lib
     type(TaskHandle) :: task_handle
     INTEGER(KIND=C_INT) :: i
+    integer, parameter :: num_threads=1
     complex :: x_cmplx=cmplx(1.41,1.41)
 
     ! Use it.
@@ -146,12 +159,12 @@ CONTAINS
     END DO
     p_reduce_res => reduce_res
     call init_func()
-    call make_threadpool(3)
+    call make_threadpool(num_threads)
     !call run(c_funloc(hello_ints), c_funloc(reduce_intermediates), c_funloc(clean_func), test_arr, 15)
     !task_handle = push_void_func(c_funloc(hello_func), empty_handle, 3, default_task_type, 1, depend_on_all)
-    task_handle = push_2d_func_with_arr_int(c_funloc(hello_ints), empty_handle, 3, &
+    task_handle = push_2d_func_with_arr_int(c_funloc(hello_ints), empty_handle, num_threads, &
                   default_task_type, 1, depend_on_all, 0, 15, 0, 15, test_arr, 15, 15)
-    task_handle = push_void_func(c_funloc(reduce_intermediates), task_handle, 3, critical_task_type, 1, depend_on_single)
+    !task_handle = push_void_func(c_funloc(reduce_intermediates), task_handle, num_threads, critical_task_type, 1, depend_on_single)
     task_handle = push_void_func(c_funloc(clean_func), task_handle, 1, critical_task_type, 1, depend_on_all)
     call wait_all_thread_pool()
     print*,"reduce res = ",reduce_res
