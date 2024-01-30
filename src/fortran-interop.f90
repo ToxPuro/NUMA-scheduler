@@ -11,6 +11,8 @@ integer, parameter :: depend_on_all=0, depend_on_single=1
 interface push_task
         module procedure push_void_func_wrapper
         module procedure push_2d_func_with_arr_int_wrapper
+        module procedure push_4d_array_task_wrapper_single
+        module procedure push_4d_array_task_wrapper_double
 end interface
   ! Define interface of C function.
   interface
@@ -73,7 +75,7 @@ end interface
       end function
   end interface
   interface
-      type(TaskHandle) function push_4d_array_task&
+      type(TaskHandle) function push_4d_array_task_single&
       (func, prerequisite, num_of_subtasks, task_type, priority, dependency_int,&
       array,x_length, y_length, z_length, w_length) BIND(C)
         use, INTRINSIC :: iso_c_binding
@@ -85,9 +87,26 @@ end interface
         integer, value :: priority
         integer, value :: dependency_int
         integer, value :: x_length, y_length, z_length, w_length
-        integer, dimension(x_length, y_length, z_length, w_length) :: array
+        real(4), dimension(x_length, y_length, z_length, w_length) :: array
       end function
   end interface
+  interface
+      type(TaskHandle) function push_4d_array_task_double&
+      (func, prerequisite, num_of_subtasks, task_type, priority, dependency_int,&
+      array,x_length, y_length, z_length, w_length) BIND(C)
+        use, INTRINSIC :: iso_c_binding
+        import TaskHandle
+        type(c_funptr), value :: func
+        type(TaskHandle), value :: prerequisite
+        integer, value :: num_of_subtasks
+        integer, value :: task_type
+        integer, value :: priority
+        integer, value :: dependency_int
+        integer, value :: x_length, y_length, z_length, w_length
+        real(8), dimension(x_length, y_length, z_length, w_length) :: array
+      end function
+  end interface
+
 
 contains
         type(TaskHandle) function push_void_func_wrapper(func, prerequisite, num_of_subtasks, task_type, priority, dependency_int)
@@ -118,7 +137,7 @@ contains
         push_2d_func_with_arr_int_wrapper=push_2d_func_with_arr_int (func, prerequisite, num_of_subtasks, task_type, priority, dependency_int,x_start,x_end,y_start,y_end,array,x_length, y_length)
       end function
 
-      type(TaskHandle) function push_4d_array_task_wrapper&
+      type(TaskHandle) function push_4d_array_task_wrapper_single&
       (func, prerequisite, num_of_subtasks, task_type, priority, dependency_int,&
       array,x_length, y_length, z_length, w_length) BIND(C)
         use, INTRINSIC :: iso_c_binding
@@ -129,7 +148,22 @@ contains
         integer, value :: priority
         integer, value :: dependency_int
         integer, value :: x_length, y_length, z_length, w_length
-        integer, dimension(x_length, y_length, z_length, w_length) :: array
-        push_4d_array_task_wrapper = push_4d_array_task(func, prerequisite, num_of_subtasks, task_type, priority,dependency_int,array,x_length, y_length, z_length, w_length)
+        real, dimension(x_length, y_length, z_length, w_length) :: array
+        push_4d_array_task_wrapper_single = push_4d_array_task_single(func, prerequisite, num_of_subtasks, task_type, priority,dependency_int,array,x_length, y_length, z_length, w_length)
+      end function
+
+      type(TaskHandle) function push_4d_array_task_wrapper_double&
+      (func, prerequisite, num_of_subtasks, task_type, priority, dependency_int,&
+      array,x_length, y_length, z_length, w_length) BIND(C)
+        use, INTRINSIC :: iso_c_binding
+        type(c_funptr), value :: func
+        type(TaskHandle), value :: prerequisite
+        integer, value :: num_of_subtasks
+        integer, value :: task_type
+        integer, value :: priority
+        integer, value :: dependency_int
+        integer, value :: x_length, y_length, z_length, w_length
+        real(8), dimension(x_length, y_length, z_length, w_length) :: array
+        push_4d_array_task_wrapper_double = push_4d_array_task_double(func, prerequisite, num_of_subtasks, task_type, priority,dependency_int,array,x_length, y_length, z_length, w_length)
       end function
 endmodule
