@@ -12,6 +12,9 @@ endfunction(add_fortran_library)
 add_library(mt STATIC multithreading.cpp)
 add_fortran_library(mt-fortran STATIC fortran-interop.f90 fortran-interop.cpp)
 target_compile_options(mt PRIVATE -fPIC)
-target_compile_options(mt-fortran PRIVATE -fPIC)
+target_compile_options(mt-fortran PRIVATE -fPIC -ffree-line-length-none)
 target_link_libraries(mt PRIVATE Threads::Threads ${MPI_CXX_LIBRARIES})
 target_link_libraries(mt-fortran mt)
+add_custom_command(TARGET mt-fortran POST_BUILD
+                   COMMAND ${CMAKE_COMMAND} -E copy_directory
+                        $<TARGET_FILE_DIR:mt-fortran>/mod ${CMAKE_SOURCE_DIR}/include/)

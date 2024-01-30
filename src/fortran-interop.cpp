@@ -157,5 +157,13 @@ push_powerscl_output_results(void (*func)(NsReal* spectrum, NsReal* hor_spectrum
   };
   return push_func(res_func, prerequisite, num_of_subtasks, task_type, priority, dependency_int);
 }
-
+TaskHandle
+push_4d_array_task(void (*func)(NsReal* array),TaskHandle prerequisite, const int num_of_subtasks, const int task_type, const int priority, const int dependency_int, NsReal* array, const int x_length, const int y_length, const int z_length, const int w_length)
+{
+  std::function<void()> res_func = [=]()
+  {
+    func(array);
+  };
+  return push_func(res_func, prerequisite, num_of_subtasks, task_type, priority, dependency_int);
+}
 }

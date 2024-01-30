@@ -82,9 +82,9 @@ CONTAINS
     call make_threadpool(num_threads)
     !call run(c_funloc(hello_ints), c_funloc(reduce_intermediates), c_funloc(clean_func), test_arr, 15)
     ! task_handle = push_void_func(c_funloc(hello_func), empty_handle, 3, default_task_type, 1, depend_on_all)
-    task_handle = push_2d_func_with_arr_int(c_funloc(hello_ints), empty_handle, num_threads, &
+    task_handle = push_task(c_funloc(hello_ints), empty_handle, num_threads, &
                  default_task_type, 1, depend_on_all, 0, 15, 0, 15, test_arr, 15, 15)
-    task_handle = push_void_func(c_funloc(clean_func), task_handle, 1, critical_task_type, 1, depend_on_all)
+    task_handle = push_task(c_funloc(clean_func), task_handle, 1, critical_task_type, 1, depend_on_all)
     call wait_all_thread_pool()
     print*,"reduce res = ",reduce_res
     print*,allocated(test_arr)
