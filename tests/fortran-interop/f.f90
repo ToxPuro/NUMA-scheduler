@@ -14,14 +14,6 @@ END TYPE TaskHandle
   integer, parameter :: depend_on_all=0, depend_on_single=1
 
   ! Define interface of C function.
-  INTERFACE
-    INTEGER(KIND=C_INT) FUNCTION call_it (func, arg) BIND(C)
-      USE, INTRINSIC :: ISO_C_BINDING
-      import TaskHandle
-      TYPE(C_FUNPTR), INTENT(IN), VALUE :: func
-      Type(TaskHandle), INTENT(IN), VALUE :: arg
-    END FUNCTION call_it
-  END INTERFACE
   interface
       subroutine make_threadpool(num_threads) BIND(C)
         integer, value :: num_threads
@@ -149,14 +141,8 @@ CONTAINS
     type(TaskHandle) :: task_handle
     INTEGER(KIND=C_INT) :: i
     integer, parameter :: num_threads=1
-    complex :: x_cmplx=cmplx(1.41,1.41)
 
     ! Use it.
-    DO i = 1_C_INT, 10_C_INT
-      task_handle%task_id = i
-      PRINT *, call_it (c_funloc(double_it), task_handle)
-
-    END DO
     p_reduce_res => reduce_res
     call init_func()
     call make_threadpool(num_threads)
@@ -172,7 +158,6 @@ CONTAINS
     !deallocate(test_arr)
     !print*,test_arr
     call free_thread_pool()
-    print*,"complex value: ",x_cmplx
   END SUBROUTINE foobar
 
 END MODULE m

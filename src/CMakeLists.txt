@@ -1,3 +1,5 @@
 add_library(mt STATIC multithreading.cpp)
+add_library(mt-fortran STATIC fortran-interop.cpp)
 target_compile_options(mt PRIVATE -fPIC)
 target_link_libraries(mt PRIVATE Threads::Threads ${MPI_CXX_LIBRARIES})
+target_link_libraries(mt-fortran mt)
