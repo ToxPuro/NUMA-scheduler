@@ -81,7 +81,7 @@ class ThreadWorker{
 class ThreadPool {
   ThreadPool(const ThreadPool&) = delete;
 	private:
-    volatile bool m_keep_processing;
+    std::atomic<bool> m_keep_processing;
     std::vector<NsTask*> m_tasks;
     std::vector<std::unique_ptr<ThreadWorker>> m_workers;
     std::condition_variable m_new_tasks_cv;

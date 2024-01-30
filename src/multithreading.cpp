@@ -243,10 +243,12 @@ void
 ThreadPool::StopProcessing()
 {
   m_keep_processing = false;
-  m_new_tasks_cv.notify_all();
   printf("STOPPED PROCESSING\n");
+  m_new_tasks_cv.notify_all();
   for(auto& worker : m_workers)
+  {
     worker->m_thread.join();
+  }
   
 }
 
