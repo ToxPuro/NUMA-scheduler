@@ -91,10 +91,10 @@ class ThreadPool {
     void
     ProcessTasks(ThreadWorker& worker);
     void
-    StartProcessing();
-    void
     PushSubtasks(NsTask* task);
 	public:
+    void
+    StartProcessing();
 		ThreadPool(const int num_of_threads);
     template <typename F>
     TaskHandle 

@@ -2,9 +2,14 @@
 #include <memory>
 #include <scheduler.h>
 #include <complex.h>
+#include <atomic>
+#ifdef USE_OPENMP
+#include <omp.h>
+#endif
 static TaskHandle EmptyTaskHandle{-1};
 static ThreadPool* pool;
 typedef float NsReal;
+std::atomic<bool> threadpool_has_init=false;
 
 //TODO: replace with correct dims
 const int nx_start = 0;
@@ -70,9 +75,30 @@ push_func(F func, TaskHandle prerequisite, const int num_of_subtasks, const int 
   return pool->Push(func, num_of_subtasks, priority, {prerequisite}, type,dependency_type);
 }
 extern "C" {
+#ifdef USE_OPENMP
+void join_threadpool(const int num_threads)
+{
+  if(omp_get_thread_num() == 1)
+  {
+    pool = new ThreadPool(num_threads);
+  }
+  else{
+    printf("Only supporting a single main scheduling thread with openmp\n");
+    exit(0);
+  }
+  threadpool_has_init = true;
+  pool->StartProcessing();
+}
+#else
 void make_threadpool(const int num_threads)
 {
   pool = new ThreadPool(num_threads);
+}
+#endif
+bool
+threadpool_has_initialized()
+{
+  return threadpool_has_init;
 }
 void
 wait_all_thread_pool()

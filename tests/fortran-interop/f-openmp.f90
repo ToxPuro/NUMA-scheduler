@@ -69,17 +69,13 @@ CONTAINS
   subroutine hello_func() BIND(C)
     print*,"Hi from Fortran"
   endsubroutine
-
-  SUBROUTINE foobar ()
+  subroutine main_sub() 
     use omp_lib
+    use, intrinsic :: iso_c_binding
+    use mt
     type(TaskHandle) :: task_handle
-    INTEGER(KIND=C_INT) :: i
     integer, parameter :: num_threads=1
-
-    ! Use it.
-    p_reduce_res => reduce_res
-    call init_func()
-    call make_threadpool(num_threads)
+    INTEGER(KIND=C_INT) :: i
     !call run(c_funloc(hello_ints), c_funloc(reduce_intermediates), c_funloc(clean_func), test_arr, 15)
     ! task_handle = push_void_func(c_funloc(hello_func), empty_handle, 3, default_task_type, 1, depend_on_all)
     task_handle = push_task(c_funloc(hello_ints), empty_handle, num_threads, &
@@ -91,11 +87,22 @@ CONTAINS
     !deallocate(test_arr)
     !print*,test_arr
     call free_thread_pool()
-  END SUBROUTINE foobar
+  endsubroutine main_sub
+
+  SUBROUTINE foobar ()
+    use omp_lib
+    type(TaskHandle) :: task_handle
+    INTEGER(KIND=C_INT) :: i
+    integer, parameter :: num_threads=1
+
+    ! Use it.
+    p_reduce_res => reduce_res
+    call init_func()
+    call mt_split(main_sub, num_threads)
+  ENDSUBROUTINE foobar
 
 END MODULE m
 program main
         use m
         call foobar()
-        print*,"end"
 endprogram

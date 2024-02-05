@@ -18,19 +18,19 @@ end interface
   interface
       subroutine join_threadpool(num_threads) BIND(C)
         integer, value :: num_threads
-      endsubroutine join_threadpool
+      endsubroutine join_threadpool 
+  end interface
+  interface 
+    logical function threadpool_has_initialized() BIND(C)
+    endfunction threadpool_has_initialized
   endinterface
-  interface
-      logical function threadpool_has_initialized() BIND(C)
-      end function threadpool_has_initialized
-  endinterface
-
-#endif
+#else
   interface
       subroutine make_threadpool(num_threads) BIND(C)
         integer, value :: num_threads
       endsubroutine make_threadpool
   end interface
+#endif
   interface
       subroutine wait_all_thread_pool() BIND(C)
       endsubroutine wait_all_thread_pool
@@ -177,6 +177,7 @@ contains
         real(8), dimension(x_length, y_length, z_length, w_length) :: array
         push_4d_array_task_wrapper_double = push_4d_array_task_double(func, prerequisite, num_of_subtasks, task_type, priority,dependency_int,array,x_length, y_length, z_length, w_length)
       end function
+#ifdef USE_OPENMP 
       subroutine mt_split(main_func, num_threads)
       interface
         subroutine main_func()
@@ -185,10 +186,13 @@ contains
       integer, value :: num_threads
       !$omp parallel num_threads(2)
       if(omp_get_thread_num() == 0) then
-        do while(!threadpool_has_initialized())
+        do while(.not. threadpool_has_initialized())
         enddo
         call main_func()
       else
         call join_threadpool(num_threads) 
+      endif
       !$omp end parallel
+      endsubroutine mt_split
+#endif
 endmodule

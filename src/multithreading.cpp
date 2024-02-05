@@ -13,11 +13,11 @@ void
 NsTask::make_subtasks(SingleDimensionalFunc function)
 {
   for(int i=0;i<num_of_subtasks;i++){
-    const auto& [start, end]= function.task_bounds.GetInterval(i, num_of_subtasks);
-    const int x = function.IsFortranFunc ? start+1: start;
+    const TaskBounds subtask_bounds = function.task_bounds.GetInterval(i, num_of_subtasks);
+    const int x = function.IsFortranFunc ? subtask_bounds.start+1: subtask_bounds.start;
       m_subtasks_lambdas.push_back(
         [=](){
-          function.lambda(x,end);
+          function.lambda(x,subtask_bounds.end);
           subtasks_done[i]=true;
           Decrement();
         }
@@ -28,12 +28,12 @@ void
 NsTask::make_subtasks(TwoDimensionalFunc function)
 {
   for(int i=0;i<num_of_subtasks;i++){
-    const auto& [x_start_, x_end]= function.x_task_bounds.GetInterval(i, num_of_subtasks);
-    const int x_start = function.IsFortranFunc ? x_start_+1 : x_start_;
+    const TaskBounds subtask_bounds = function.x_task_bounds.GetInterval(i, num_of_subtasks);
+    const int x_start = function.IsFortranFunc ? subtask_bounds.start+1 : subtask_bounds.start;
     const int y_start = function.IsFortranFunc ? function.y_task_bounds.start+1 : function.y_task_bounds.start;
       m_subtasks_lambdas.push_back(
         [=](){
-          function.lambda(x_start,x_end,y_start,function.y_task_bounds.end);
+          function.lambda(x_start,subtask_bounds.end,y_start,function.y_task_bounds.end);
           subtasks_done[i]=true;
           Decrement();
         }
@@ -44,13 +44,13 @@ void
 NsTask::make_subtasks(ThreeDimensionalFunc function)
 {
   for(int i=0;i<num_of_subtasks;i++){
-    const auto& [x_start_, x_end]= function.x_task_bounds.GetInterval(i, num_of_subtasks);
-    const int x_start = function.IsFortranFunc ? x_start_+1 : x_start_;
+    const TaskBounds subtask_bounds = function.x_task_bounds.GetInterval(i, num_of_subtasks);
+    const int x_start = function.IsFortranFunc ? subtask_bounds.start+1 : subtask_bounds.start;
     const int y_start = function.IsFortranFunc ? function.y_task_bounds.start+1 : function.y_task_bounds.start;
     const int z_start = function.IsFortranFunc ? function.z_task_bounds.start+1 : function.z_task_bounds.start;
       m_subtasks_lambdas.push_back(
         [=](){
-          function.lambda(x_start,x_end,y_start,function.y_task_bounds.end,z_start,function.z_task_bounds.end);
+          function.lambda(x_start,subtask_bounds.end,y_start,function.y_task_bounds.end,z_start,function.z_task_bounds.end);
           subtasks_done[i]=true;
           Decrement();
         }
@@ -151,7 +151,9 @@ ThreadPool::ThreadPool(const int num_of_threads):
   m_tasks({}), m_global_taskqueue(){
     for(int i=0;i<num_of_threads;i++)
       m_workers.emplace_back(std::make_unique<ThreadWorker>(i));
+#ifndef USE_OPENMP
     StartProcessing();
+#endif
   };
 void
 ThreadPool::PushSubtasks(NsTask* task)
@@ -227,8 +229,12 @@ ThreadPool::ProcessTasks(ThreadWorker& worker)
 void
 ThreadWorker::Launch(std::function<void(ThreadWorker&)> lambda)
 {
+  #ifdef USE_OPENMP
+  lambda(*this);
+  #else
   m_thread = std::thread([=]{ lambda(*this);});
   BindThreadToCore(m_thread, m_core_num);
+  #endif
 }
 void
 ThreadPool::StartProcessing()
@@ -245,10 +251,13 @@ ThreadPool::StopProcessing()
   m_keep_processing = false;
   printf("STOPPED PROCESSING\n");
   m_new_tasks_cv.notify_all();
+  WaitAll();
+  #ifndef USE_OPENMP
   for(auto& worker : m_workers)
   {
     worker->m_thread.join();
   }
+  #endif
   
 }
 
