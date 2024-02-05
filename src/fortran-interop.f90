@@ -134,7 +134,8 @@ contains
         integer, value :: x_start,x_end, y_start, y_end
         integer, value :: x_length, y_length 
         integer, dimension(x_length, y_length) :: array
-        push_2d_func_with_arr_int_wrapper=push_2d_func_with_arr_int (func, prerequisite, num_of_subtasks, task_type, priority, dependency_int,x_start,x_end,y_start,y_end,array,x_length, y_length)
+        push_2d_func_with_arr_int_wrapper=push_2d_func_with_arr_int (func, prerequisite, num_of_subtasks, &
+                task_type, priority, dependency_int,x_start,x_end,y_start,y_end,array,x_length, y_length)
       end function
 
       type(TaskHandle) function push_4d_array_task_wrapper_single&
@@ -149,7 +150,9 @@ contains
         integer, value :: dependency_int
         integer, value :: x_length, y_length, z_length, w_length
         real, dimension(x_length, y_length, z_length, w_length) :: array
-        push_4d_array_task_wrapper_single = push_4d_array_task_single(func, prerequisite, num_of_subtasks, task_type, priority,dependency_int,array,x_length, y_length, z_length, w_length)
+        push_4d_array_task_wrapper_single = push_4d_array_task_single(func, prerequisite,&
+               num_of_subtasks, task_type, priority,dependency_int,&
+               array,x_length, y_length, z_length, w_length)
       end function
 
       type(TaskHandle) function push_4d_array_task_wrapper_double&
@@ -164,6 +167,9 @@ contains
         integer, value :: dependency_int
         integer, value :: x_length, y_length, z_length, w_length
         real(8), dimension(x_length, y_length, z_length, w_length) :: array
-        push_4d_array_task_wrapper_double = push_4d_array_task_double(func, prerequisite, num_of_subtasks, task_type, priority,dependency_int,array,x_length, y_length, z_length, w_length)
+        push_4d_array_task_wrapper_double = &
+        push_4d_array_task_double(func, prerequisite, &
+        num_of_subtasks, task_type, priority,dependency_int,&
+        array,x_length, y_length, z_length, w_length)
       end function
 endmodule
