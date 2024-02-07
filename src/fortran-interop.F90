@@ -188,6 +188,7 @@ contains
         endsubroutine main_func
       endinterface
       integer, value :: num_threads
+      call omp_set_max_active_levels(2)
       !$omp parallel num_threads(2)
       if(omp_get_thread_num() == 0) then
         do while(.not. threadpool_has_initialized())
