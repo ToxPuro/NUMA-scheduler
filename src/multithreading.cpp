@@ -124,6 +124,17 @@ BindThreadToCore(std::thread& t, const int core_id)
                                     sizeof(cpu_set_t), &cpuset);
     return static_cast<bool>(1-rc);
 }
+bool
+BindCurrentThreadToCore(const int core_id)
+{
+   cpu_set_t cpuset;
+   CPU_ZERO(&cpuset);
+   CPU_SET(core_id, &cpuset);
+
+   pthread_t current_thread = pthread_self();
+   const int rc = pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset);
+   return static_cast<bool>(1-rc);
+}
 std::function<void()>
 NsTask::MakeAsync(std::function<void()> lambda, const int core_id)
 {
